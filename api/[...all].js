@@ -7,15 +7,15 @@ import { handleAiChatStream, handleSecurityApi, handleHealthProbes } from '../se
 export default async function handler(req, res) {
   const url = req.url ? req.url.split('?')[0] : '';
 
-  if (url.includes('/api/ai/chat')) {
+  if (url.includes('ai/chat')) {
     return handleAiChatStream(req, res);
   }
 
-  if (url.includes('/api/security') || url.includes('/api/webhooks')) {
+  if (url.includes('security') || url.includes('webhooks')) {
     if (handleSecurityApi(req, res)) return;
   }
 
-  if (url.includes('/api/health') || url === '/live' || url === '/ready' || url === '/startup' || url === '/healthz') {
+  if (url.includes('health') || url === '/live' || url === '/ready' || url === '/startup' || url === '/healthz') {
     if (handleHealthProbes(req, res)) return;
   }
 

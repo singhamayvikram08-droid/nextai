@@ -321,7 +321,7 @@ const LoginPage = () => {
     }
 
     if (!captchaVerified) {
-      setServerError('Please complete the Neural Bot Defense challenge below before proceeding.');
+      setServerError('Please complete the CAPTCHA verification below before proceeding.');
       return;
     }
 
@@ -753,12 +753,12 @@ const LoginPage = () => {
                     </div>
                   )}
 
-                  {/* Cryptographic CAPTCHA & Anti-Bot Challenge */}
+                  {/* Security CAPTCHA Challenge */}
                   <div className="pt-1">
                     <CaptchaWidget
                       onVerified={() => {
                         setCaptchaVerified(true);
-                        if (serverError && serverError.includes('Neural Bot Defense')) {
+                        if (serverError && serverError.includes('CAPTCHA')) {
                           setServerError(null);
                         }
                       }}

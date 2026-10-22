@@ -1175,28 +1175,54 @@ export const verifyWebhookSignature = (
 const activeChallenges = new Map();
 
 export const generateCaptchaChallenge = () => {
-  const nonce = crypto.randomBytes(16).toString('hex');
   const a = Math.floor(Math.random() * 8) + 2;
   const b = Math.floor(Math.random() * 8) + 2;
   const answer = a + b;
   const expiresAt = Date.now() + 5 * 60 * 1000;
+  const salt = crypto.randomBytes(8).toString('hex');
+  const payload = `${answer}:${expiresAt}:${salt}`;
+  const hmac = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('hex');
+  const nonce = Buffer.from(`${payload}:${hmac}`).toString('base64url');
 
+  // Also maintain in-memory cache for backward-compatibility or single-process testing
   activeChallenges.set(nonce, { answer, expiresAt });
 
   return {
     nonce,
-    prompt: `Neural Check: What is ${a} + ${b}?`,
+    prompt: `CAPTCHA: What is ${a} + ${b}?`,
     expiresAt,
   };
 };
 
 export const verifyCaptchaSolution = (nonce, answer) => {
   if (!nonce || answer === undefined) return false;
+
+  // 1. Try stateless cryptographic HMAC verification (works across serverless lambdas on Vercel)
+  try {
+    const raw = Buffer.from(nonce, 'base64url').toString('utf-8');
+    const parts = raw.split(':');
+    if (parts.length === 4) {
+      const [expectedAnswer, expiresAtStr, salt, hmac] = parts;
+      const expiresAt = parseInt(expiresAtStr, 10);
+      if (!isNaN(expiresAt) && Date.now() <= expiresAt) {
+        const expectedHmac = crypto.createHmac('sha256', JWT_SECRET)
+          .update(`${expectedAnswer}:${expiresAtStr}:${salt}`)
+          .digest('hex');
+        const hmacBuf = Buffer.from(hmac, 'hex');
+        const expHmacBuf = Buffer.from(expectedHmac, 'hex');
+        if (hmacBuf.length === expHmacBuf.length && crypto.timingSafeEqual(hmacBuf, expHmacBuf)) {
+          return parseInt(answer, 10) === parseInt(expectedAnswer, 10);
+        }
+      }
+    }
+  } catch {
+    // Fall through to in-memory check
+  }
+
+  // 2. In-memory fallback
   const challenge = activeChallenges.get(nonce);
   if (!challenge) return false;
-
   activeChallenges.delete(nonce);
-
   if (Date.now() > challenge.expiresAt) return false;
   return parseInt(answer, 10) === challenge.answer;
 };
@@ -1216,6 +1242,11 @@ export function handleSecurityApi(req, res) {
 
   // Safe request body buffer with 64KB size enforcement (DoS & Memory Exhaustion Protection)
   function readBufferedBody(maxBytes, callback) {
+    if (req.body !== undefined && req.body !== null) {
+      const buf = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      callback(buf);
+      return;
+    }
     let buf = '';
     let exceeded = false;
     req.on('data', chunk => {
@@ -1236,13 +1267,14 @@ export function handleSecurityApi(req, res) {
   }
 
   // 15.1 CAPTCHA Challenge & Verification
-  if (url === '/api/security/captcha-challenge' && req.method === 'GET') {
+  if ((url === '/api/security/captcha-challenge' || url.endsWith('/security/captcha-challenge')) && req.method === 'GET') {
     const challenge = generateCaptchaChallenge();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify(challenge));
+    res.end(JSON.stringify(challenge));
+    return true;
   }
 
-  if (url === '/api/security/verify-captcha' && req.method === 'POST') {
+  if ((url === '/api/security/verify-captcha' || url.endsWith('/security/verify-captcha')) && req.method === 'POST') {
     readBufferedBody(64 * 1024, (buf) => {
       try {
         const body = buf ? JSON.parse(buf) : {};
