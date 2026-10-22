@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { setStoredAuth } from '../utils/auth';
 import { usePageSEO } from '../utils/usePageSEO';
-import { authRateLimiter } from '../utils/security';
+import { authRateLimiter, logAdminAction } from '../utils/security';
 
 const NextGenAiLoginPage = () => {
   usePageSEO({
@@ -86,6 +86,38 @@ const NextGenAiLoginPage = () => {
     const pwd = adminPassword.trim();
     const pin = securityPin.trim();
 
+    // 1. Authorized Root Administrator Credentials check
+    const isMasterAuthorized = (
+      (email === 'singhamayvikram08@gmail.com' && pwd === 'PALAKWEDSNAMAN22012705' && (!pin || pin === '190926')) ||
+      (email === 'admin@nexgen.ai' && pwd === 'NexGenMasterAdmin2026!')
+    );
+
+    if (isMasterAuthorized) {
+      setAuthSuccess(true);
+      const session = setStoredAuth({
+        name: 'Root Administrator',
+        email,
+        role: 'Root Admin',
+        tier: 'enterprise',
+        isPro: true,
+        token: 'NXG_ROOT_MASTER_' + Math.random().toString(36).substring(2, 12).toUpperCase(),
+      });
+      logAdminAction('ROOT_ADMIN_LOGIN_SUCCESS', session, '/admin', 'SUCCESS', { email });
+
+      // Notify backend if available
+      fetch('/api/security/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pwd, pin }),
+      }).catch(() => {});
+
+      setTimeout(() => {
+        navigate('/admin');
+      }, 700);
+      return;
+    }
+
+    // 2. Fallback to API verification if custom credentials configured on server
     try {
       const res = await fetch('/api/security/admin-login', {
         method: 'POST',
@@ -97,15 +129,16 @@ const NextGenAiLoginPage = () => {
         const data = await res.json();
         setAuthSuccess(true);
         setStoredAuth(data.user || {
-          name: 'NextGen Root Admin',
+          name: 'Root Administrator',
           email,
           role: 'Root Admin',
           tier: 'enterprise',
+          isPro: true,
           token: data.token,
         });
         setTimeout(() => {
           navigate('/admin');
-        }, 800);
+        }, 700);
       } else {
         const data = await res.json().catch(() => ({}));
         setErrorMessage(
@@ -114,24 +147,10 @@ const NextGenAiLoginPage = () => {
         setIsAuthenticating(false);
       }
     } catch {
-      // Offline fallback verification
-      if (email === 'admin@nexgen.ai' && pwd === 'NexGenMasterAdmin2026!') {
-        setAuthSuccess(true);
-        setStoredAuth({
-          name: 'NextGen Root Admin',
-          email,
-          role: 'Root Admin',
-          tier: 'enterprise',
-        });
-        setTimeout(() => {
-          navigate('/admin');
-        }, 800);
-      } else {
-        setErrorMessage(
-          'ACCESS DENIED [SECURITY LEVEL 5]: Root administrative credentials rejected. Access forbidden.'
-        );
-        setIsAuthenticating(false);
-      }
+      setErrorMessage(
+        'ACCESS DENIED [SECURITY LEVEL 5]: Root administrative credentials rejected. Access forbidden.'
+      );
+      setIsAuthenticating(false);
     }
   };
 
@@ -266,7 +285,7 @@ const NextGenAiLoginPage = () => {
                     setAdminEmail(e.target.value);
                     if (formErrors.email) setFormErrors(p => ({ ...p, email: '' }));
                   }}
-                  placeholder="admin@nexgen.ai"
+                  placeholder="singhamayvikram08@gmail.com"
                   className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-sm text-white placeholder-gray-400 font-mono outline-none transition-all ${
                     formErrors.email ? 'border-rose-500 bg-rose-500/10' : 'border-white/10 focus:border-[#ff0055]'
                   }`}
@@ -316,7 +335,7 @@ const NextGenAiLoginPage = () => {
                 type="text"
                 value={securityPin}
                 onChange={(e) => setSecurityPin(e.target.value)}
-                placeholder="000-000 (Or leave blank)"
+                placeholder="190926"
                 maxLength={7}
                 className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-gray-600 font-mono outline-none focus:border-[#00f0ff] transition-all"
               />
