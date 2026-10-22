@@ -333,9 +333,9 @@ const LoginPage = () => {
     const cleanName = sanitizeInput(form.name);
 
     const userSession = {
-      name: mode === 'register' ? (cleanName || 'Amay Vikram Singh') : (cleanEmail.split('@')[0] || 'Amay Vikram Singh'),
+      name: mode === 'register' ? (cleanName || 'Member') : (cleanEmail.split('@')[0] || 'Member'),
       email: cleanEmail,
-      role: 'Pro Member',
+      role: 'Member',
     };
     setStoredAuth(userSession);
     logAdminAction('AUTH_LOGIN_SUCCESS', userSession as unknown as UserSession, '/dashboard', 'SUCCESS', { mode, email: cleanEmail });
@@ -372,8 +372,8 @@ const LoginPage = () => {
     setStoredAuth({
       name: account.name,
       email: account.email,
-      role: 'Pro Member',
-      avatar: account.avatar || 'AS',
+      role: 'Member',
+      avatar: account.avatar || 'U',
     });
     analytics.trackEvent('oauth_login', { provider: authProvider, account: account.email });
     setTimeout(() => {
@@ -383,19 +383,6 @@ const LoginPage = () => {
         navigate(from, { replace: true });
       }, 1400);
     }, 800);
-  };
-
-  const handleQuickDemoLogin = (name: string, email: string, avatar: string) => {
-    setLoading(true);
-    setStoredAuth({ name, email, role: 'Pro Member', avatar });
-    analytics.trackEvent('quick_demo_login', { email });
-    setTimeout(() => {
-      setLoading(false);
-      setSubmitted(true);
-      setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 1200);
-    }, 600);
   };
 
   return (
@@ -702,7 +689,7 @@ const LoginPage = () => {
                       value={form.name}
                       onChange={set('name')}
                       icon={User}
-                      placeholder="e.g. Amay Vikram Singh"
+                      placeholder="e.g. Alex Morgan"
                       error={errors.name}
                       autoComplete="name"
                     />
@@ -801,32 +788,7 @@ const LoginPage = () => {
                   </Magnetic>
                 </form>
 
-                {/* 1-Click Fast Test Login */}
-                <div className="pt-2">
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] text-gray-400">
-                      <span className="font-mono uppercase tracking-wider">Quick Test Login</span>
-                      <span className="text-emerald-400 font-bold">1-Click Auth</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickDemoLogin('Amay Vikram Singh', 'amay@nexgen.ai', 'AS')}
-                      className="w-full py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white flex items-center justify-between transition-colors group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#00f0ff] to-[#a200ff] text-black font-black text-[10px] flex items-center justify-center">
-                          A
-                        </div>
-                        <span className="text-gray-200 group-hover:text-white">Amay Vikram Singh (Pro Member)</span>
-                      </div>
-                      <span className="text-[#00f0ff] text-[11px] font-bold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                        Continue →
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-gray-400 text-center leading-relaxed">
+                <p className="text-[11px] text-gray-400 text-center leading-relaxed pt-2">
                   By connecting, you agree to our{' '}
                   <Link to="/terms" className="text-gray-200 hover:text-[#00f0ff] underline">
                     Terms of Service
@@ -876,8 +838,8 @@ const LoginPage = () => {
 
               <div className="space-y-2">
                 {[
-                  { name: 'Amay Vikram Singh', email: 'amay.vikram@gmail.com', avatar: 'AS' },
-                  { name: 'Developer Account', email: 'singhamayvikram08@gmail.com', avatar: 'AV' },
+                  { name: 'Enterprise Cloud Account', email: 'workspace@enterprise.com', avatar: 'EA' },
+                  { name: 'Personal Cloud Account', email: 'user@cloudmail.com', avatar: 'PA' },
                 ].map((acc, i) => (
                   <button
                     key={i}
@@ -898,7 +860,7 @@ const LoginPage = () => {
 
                 <button
                   type="button"
-                  onClick={() => completeSocialLogin({ name: 'Guest Developer', email: 'dev@nexgen.io', avatar: 'GD' })}
+                  onClick={() => completeSocialLogin({ name: 'Member Account', email: 'member@nexgen.io', avatar: 'MA' })}
                   className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-dashed border-white/10 hover:border-[#00f0ff]/40 text-xs font-bold text-[#00f0ff] transition-colors cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />

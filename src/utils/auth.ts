@@ -32,10 +32,10 @@ export const setStoredAuth = (user: Partial<UserSession>): UserSession => {
   const isPro = tier === 'pro' || tier === 'enterprise' || Boolean(user.isPro);
 
   const session: UserSession = {
-    name: user.name || current?.name || 'Amay Vikram Singh',
-    email: user.email || current?.email || 'developer@nexgen.io',
+    name: user.name || current?.name || 'Authorized Member',
+    email: user.email || current?.email || 'member@nexgen.io',
     role: user.role || current?.role || (isPro ? 'Pro Subscriber' : 'Member'),
-    avatar: (user.name ? user.name.split(' ').map(n => n[0]).join('') : (current?.avatar || 'AV')).slice(0, 2).toUpperCase(),
+    avatar: (user.name ? user.name.split(' ').map(n => n[0]).join('') : (current?.avatar || 'MB')).slice(0, 2).toUpperCase(),
     token: user.token || current?.token || 'NXG_' + Math.random().toString(36).substring(2, 10).toUpperCase(),
     tier: tier,
     isPro: isPro,

@@ -128,7 +128,7 @@ const Pricing = () => {
   
   // Card Form State
   const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
-  const [cardHolder, setCardHolder] = useState(() => user?.name || 'Amay Vikram Singh');
+  const [cardHolder, setCardHolder] = useState(() => user?.name || 'Valued Customer');
   const [cardExpiry, setCardExpiry] = useState('12/28');
   const [cardCvc, setCardCvc] = useState('888');
 
@@ -250,8 +250,8 @@ const Pricing = () => {
         const isEnterprise = activePlan.id === 'enterprise';
         const nextTier = activePlan.id === 'hobby' ? 'free' : (activePlan.id as 'pro' | 'enterprise');
         setStoredAuth({
-          name: user?.name || cardHolder.trim() || 'Amay Vikram Singh',
-          email: user?.email || 'developer@nexgen.io',
+          name: user?.name || cardHolder.trim() || 'Valued Customer',
+          email: user?.email || 'customer@nexgen.io',
           role: isProPlan ? 'Pro Subscriber' : (isEnterprise ? 'Enterprise Subscriber' : 'Member'),
           tier: nextTier,
           isPro: isProPlan || isEnterprise,

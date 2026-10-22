@@ -319,7 +319,7 @@ const DashboardPage = () => {
         break;
 
       case 'whoami':
-        newHistory[newHistory.length - 1].res = 'Identity: Amay Vikram Singh\nRole    : Pro Member / Spatial Architect\nScope   : read:write:deploy:cluster:pro';
+        newHistory[newHistory.length - 1].res = `Identity: ${user?.name || 'Authorized Member'}\nRole    : ${user?.role || 'Pro Member / Spatial Architect'}\nScope   : read:write:deploy:cluster:pro`;
         newHistory[newHistory.length - 1].type = 'info';
         break;
 
@@ -448,10 +448,10 @@ const DashboardPage = () => {
 
           <div className="flex items-center gap-2.5 sm:gap-3 pl-2 sm:pl-4 border-l border-white/10">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#00f0ff] to-[#a200ff] flex items-center justify-center text-xs font-black text-black shadow-lg shadow-[#00f0ff]/20 shrink-0">
-              {user?.avatar || 'AV'}
+              {user?.avatar || 'MB'}
             </div>
             <div className="hidden lg:block text-left">
-              <div className="text-xs font-bold text-white leading-tight">{user?.name || 'Amay Vikram Singh'}</div>
+              <div className="text-xs font-bold text-white leading-tight">{user?.name || 'Authorized Member'}</div>
               {isPro ? (
                 <div className="text-[10px] text-[#00f0ff] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-[#00f0ff]" />

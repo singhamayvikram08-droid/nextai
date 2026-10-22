@@ -63,8 +63,8 @@ const NextGenAiPortalPage = () => {
 
   // Mock Registered Users list for admin control
   const [userDirectory, setUserDirectory] = useState([
-    { id: 'usr-001', name: 'Amay Vikram Singh', email: 'developer@nexgen.io', role: 'Root Admin', tier: 'pro', status: 'ACTIVE' },
-    { id: 'usr-002', name: 'Alex Vance', email: 'alex@blackmesa.gov', role: 'Enterprise Admin', tier: 'enterprise', status: 'ACTIVE' },
+    { id: 'usr-001', name: 'Lead Administrator', email: 'admin@nexgen.ai', role: 'Root Admin', tier: 'enterprise', status: 'ACTIVE' },
+    { id: 'usr-002', name: 'Alex Vance', email: 'alex@enterprise.cloud', role: 'Enterprise Admin', tier: 'enterprise', status: 'ACTIVE' },
     { id: 'usr-003', name: 'Sarah Connor', email: 'sarah@cyberdyne.org', role: 'Member', tier: 'pro', status: 'ACTIVE' },
     { id: 'usr-004', name: 'David Bowman', email: 'david@discovery-one.io', role: 'Member', tier: 'free', status: 'ACTIVE' },
     { id: 'usr-005', name: 'Neo Anderson', email: 'neo@matrix-core.net', role: 'Member', tier: 'pro', status: 'SUSPENDED' },
@@ -348,7 +348,7 @@ const NextGenAiPortalPage = () => {
               {user?.avatar || 'RA'}
             </div>
             <div className="hidden md:block text-left">
-              <div className="text-xs font-bold text-white">{user?.name || 'Amay Vikram Singh'}</div>
+              <div className="text-xs font-bold text-white">{user?.name || 'Root Administrator'}</div>
               <div className="text-[10px] font-mono text-[#00f0ff] uppercase">{user?.role || 'Root Admin'}</div>
             </div>
             <button
