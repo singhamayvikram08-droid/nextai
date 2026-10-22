@@ -130,8 +130,12 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/next-gen-ai/login" element={<NextGenAiLoginPage />} />
             <Route path="/admin/login" element={<NextGenAiLoginPage />} />
+            <Route path="/portal/login" element={<NextGenAiLoginPage />} />
+            <Route path="/admin-portal/login" element={<NextGenAiLoginPage />} />
             <Route path="/next-gen-ai" element={<NextGenAiPortalPage />} />
             <Route path="/admin" element={<NextGenAiPortalPage />} />
+            <Route path="/portal" element={<NextGenAiPortalPage />} />
+            <Route path="/admin-portal" element={<NextGenAiPortalPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

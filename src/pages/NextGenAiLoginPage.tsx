@@ -104,7 +104,7 @@ const NextGenAiLoginPage = () => {
           token: data.token,
         });
         setTimeout(() => {
-          navigate('/next-gen-ai');
+          navigate('/admin');
         }, 800);
       } else {
         const data = await res.json().catch(() => ({}));
@@ -124,7 +124,7 @@ const NextGenAiLoginPage = () => {
           tier: 'enterprise',
         });
         setTimeout(() => {
-          navigate('/next-gen-ai');
+          navigate('/admin');
         }, 800);
       } else {
         setErrorMessage(

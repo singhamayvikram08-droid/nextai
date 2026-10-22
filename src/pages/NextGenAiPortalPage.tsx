@@ -84,10 +84,10 @@ const NextGenAiPortalPage = () => {
   // Check if current user is an authorized administrator
   const isAdmin = isAuthenticated && user && (user.role === 'Root Admin' || user.role === 'admin' || user.role === 'Enterprise Admin');
 
-  // Redirection guard to dedicated /next-gen-ai/login if not authorized as Root Admin
+  // Redirection guard to dedicated /admin/login if not authorized as Root Admin
   useEffect(() => {
     if (!isAdmin) {
-      navigate('/next-gen-ai/login', { replace: true });
+      navigate('/admin/login', { replace: true });
     }
   }, [isAdmin, navigate]);
 
