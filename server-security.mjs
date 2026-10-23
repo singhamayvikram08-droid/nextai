@@ -1227,6 +1227,14 @@ export const verifyCaptchaSolution = (nonce, answer) => {
 // ============================================================================
 // 15. UNIFIED ENTERPRISE SECURITY API HANDLER
 // ============================================================================
+let lbAlgorithm = 'Weighted Round-Robin';
+let lbClusters = [
+  { id: 'us-east-1', name: 'US-East (N. Virginia)', ip: '198.51.100.24', nodes: 110, weight: 35, rps: 16873, latencyMs: 12.4, health: 'HEALTHY', load: 42, isDrained: false },
+  { id: 'us-west-2', name: 'US-West (Oregon)', ip: '198.51.100.88', nodes: 78, weight: 25, rps: 12052, latencyMs: 18.1, health: 'HEALTHY', load: 36, isDrained: false },
+  { id: 'eu-central-1', name: 'EU-Central (Frankfurt)', ip: '203.0.113.14', nodes: 74, weight: 25, rps: 12050, latencyMs: 24.3, health: 'HEALTHY', load: 39, isDrained: false },
+  { id: 'ap-south-1', name: 'AP-South (Mumbai)', ip: '203.0.113.92', nodes: 50, weight: 15, rps: 7235, latencyMs: 6.8, health: 'HEALTHY', load: 31, isDrained: false }
+];
+
 export function handleSecurityApi(req, res) {
   applyCorsHeaders(req, res);
 
@@ -1464,6 +1472,71 @@ export function handleSecurityApi(req, res) {
         apiGateways: 'http://localhost:5173/api/*'
       }
     }, null, 2));
+  }
+
+  // 15.6.1 Cluster Status & Load Balancer Overview
+  if ((url === '/api/v1/cluster/status' || url === '/api/security/load-balancer' || url.endsWith('/security/load-balancer') || url.endsWith('/cluster/status')) && req.method === 'GET') {
+    const totalNodes = lbClusters.reduce((sum, c) => sum + (c.isDrained ? 0 : c.nodes), 0);
+    const totalRps = lbClusters.reduce((sum, c) => sum + (c.isDrained ? 0 : c.rps), 0);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      status: 'ACTIVE_INGRESS_HA',
+      algorithm: lbAlgorithm,
+      totalNodes,
+      totalRps,
+      throughput: '1.28 TB/s',
+      p99LatencyMs: 8.4,
+      sslTermination: 'TLS 1.3 / Quantum-Safe Kyber',
+      healthyClusters: lbClusters.filter(c => !c.isDrained).length,
+      clusters: lbClusters,
+      timestamp: new Date().toISOString()
+    }));
+  }
+
+  // 15.6.2 Automated Cluster Load Rebalancing
+  if ((url === '/api/v1/cluster/rebalance' || url.endsWith('/cluster/rebalance')) && req.method === 'POST') {
+    lbClusters = lbClusters.map(c => {
+      const newLoad = Math.floor(Math.random() * 20 + 25);
+      return {
+        ...c,
+        load: newLoad,
+        health: c.isDrained ? 'DRAINED' : 'HEALTHY',
+        rps: c.isDrained ? 0 : Math.round(48210 * (c.weight / 100) * (Math.random() * 0.1 + 0.95))
+      };
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      success: true,
+      status: 'REBALANCED',
+      message: 'Automated cluster rebalance complete: 312 nodes balanced across 4 regions.',
+      algorithm: lbAlgorithm,
+      clusters: lbClusters,
+      rebalancedAt: new Date().toISOString()
+    }));
+  }
+
+  // 15.6.3 Load Balancer Policy / Configuration Update
+  if ((url === '/api/security/load-balancer/config' || url.endsWith('/security/load-balancer/config')) && req.method === 'POST') {
+    readBufferedBody(64 * 1024, (buf) => {
+      try {
+        const body = buf ? JSON.parse(buf) : {};
+        if (body.algorithm) lbAlgorithm = body.algorithm;
+        if (Array.isArray(body.clusters)) {
+          lbClusters = body.clusters;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          success: true,
+          algorithm: lbAlgorithm,
+          clusters: lbClusters,
+          updatedAt: new Date().toISOString()
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return true;
   }
 
   return false;

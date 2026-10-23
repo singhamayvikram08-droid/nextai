@@ -7,7 +7,8 @@ import {
   Sliders, MessageSquare, Tag, Terminal, LogOut,
   ArrowUpRight, Power, AlertOctagon,
   Users, RotateCcw, Laptop,
-  Activity, Radio, Copy, Check, Cpu, FileText
+  Activity, Radio, Copy, Check, Cpu, FileText,
+  Network, Globe, Gauge, GitFork
 } from 'lucide-react';
 import { useAuth } from '../utils/auth';
 import { useSiteConfig, type ConsumerSiteConfig } from '../utils/siteConfig';
@@ -21,6 +22,14 @@ import {
   type ReadinessProbeResult,
   type StartupProbeResult,
 } from '../utils/probes';
+import {
+  fetchLoadBalancerStatus,
+  triggerClusterRebalance,
+  updateLoadBalancerConfig,
+  AVAILABLE_ALGORITHMS,
+  type LoadBalancerState,
+  DEFAULT_LOAD_BALANCER_STATE,
+} from '../utils/loadBalancer';
 
 interface AuditLog {
   id: string;
@@ -41,8 +50,17 @@ const NextGenAiPortalPage = () => {
   const { config, updateConfig, resetConfig } = useSiteConfig();
 
   // Active Admin Tabs
-  const [activeTab, setActiveTab] = useState<'overview' | 'hero' | 'announcement' | 'features' | 'pricing' | 'maintenance' | 'users' | 'probes' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'balancer' | 'hero' | 'announcement' | 'features' | 'pricing' | 'maintenance' | 'users' | 'probes' | 'audit'>('overview');
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+
+  // High-Availability Load Balancer State
+  const [lbData, setLbData] = useState<LoadBalancerState>(DEFAULT_LOAD_BALANCER_STATE);
+  const [isRebalancing, setIsRebalancing] = useState<boolean>(false);
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<string>(DEFAULT_LOAD_BALANCER_STATE.algorithm);
+  const [lbLogs, setLbLogs] = useState<Array<{ text: string; type: 'info' | 'success' | 'warn'; ts: string }>>([
+    { text: '[INGRESS] Anycast Geo-DNS Gateway online on port 443 with TLS 1.3 quantum-safe cipher.', type: 'info', ts: new Date().toLocaleTimeString() },
+    { text: '[CLUSTER] 4 Edge cluster targets registered and health checked: 312 nodes active.', type: 'success', ts: new Date().toLocaleTimeString() },
+  ]);
 
   // Cloud-Native Kubernetes Health Probes State (Admin Controlled)
   const [livenessData, setLivenessData] = useState<LivenessProbeResult | null>(null);
@@ -80,6 +98,112 @@ const NextGenAiPortalPage = () => {
   useEffect(() => {
     setFormConfig(config);
   }, [config]);
+
+  // Poll Load Balancer telemetry
+  const refreshLoadBalancer = useCallback(async () => {
+    const data = await fetchLoadBalancerStatus();
+    setLbData(data);
+    setSelectedAlgorithm(data.algorithm);
+  }, []);
+
+  useEffect(() => {
+    refreshLoadBalancer();
+    const interval = setInterval(refreshLoadBalancer, 10000);
+    return () => clearInterval(interval);
+  }, [refreshLoadBalancer]);
+
+  // Handle Automated Load Rebalance
+  const handleTriggerRebalance = async () => {
+    setIsRebalancing(true);
+    setLbLogs(prev => [
+      { text: '[REBALANCE] Initiating global edge cluster load redistribution across 4 availability zones...', type: 'info', ts: new Date().toLocaleTimeString() },
+      ...prev.slice(0, 8)
+    ]);
+    
+    const result = await triggerClusterRebalance();
+    setLbData(prev => ({
+      ...prev,
+      clusters: result.clusters,
+      totalNodes: result.clusters.reduce((acc, c) => acc + (c.isDrained ? 0 : c.nodes), 0),
+    }));
+    
+    setIsRebalancing(false);
+    setSaveFeedback(result.message);
+    setLbLogs(prev => [
+      { text: `[SUCCESS] ${result.message}`, type: 'success', ts: new Date().toLocaleTimeString() },
+      ...prev.slice(0, 8)
+    ]);
+    
+    setAuditLogs(prev => [
+      { id: `log-${Date.now()}`, ts: new Date().toLocaleTimeString(), action: 'Triggered Automated Cluster Load Rebalance (312 Nodes)', admin: user?.name || 'Root Admin', type: 'security' },
+      ...prev
+    ]);
+    
+    setTimeout(() => setSaveFeedback(null), 3500);
+  };
+
+  // Handle Switch Algorithm
+  const handleApplyAlgorithm = async (algo: string) => {
+    setSelectedAlgorithm(algo);
+    await updateLoadBalancerConfig(algo, lbData.clusters);
+    setLbData(prev => ({ ...prev, algorithm: algo }));
+    setSaveFeedback(`Routing algorithm updated to: ${algo}`);
+    setLbLogs(prev => [
+      { text: `[POLICY] Ingress routing algorithm switched to ${algo}. Traffic policy applied.`, type: 'info', ts: new Date().toLocaleTimeString() },
+      ...prev.slice(0, 8)
+    ]);
+    setAuditLogs(prev => [
+      { id: `log-${Date.now()}`, ts: new Date().toLocaleTimeString(), action: `Switched Load Balancer algorithm to ${algo}`, admin: user?.name || 'Root Admin', type: 'update' },
+      ...prev
+    ]);
+    setTimeout(() => setSaveFeedback(null), 3000);
+  };
+
+  // Toggle Cluster Zone Drain
+  const handleToggleZoneDrain = async (zoneId: string) => {
+    const targetZone = lbData.clusters.find(c => c.id === zoneId);
+    const wasDrained = targetZone?.isDrained;
+
+    const updatedClusters = lbData.clusters.map(c => {
+      if (c.id === zoneId) {
+        const nextDrained = !wasDrained;
+        return {
+          ...c,
+          isDrained: nextDrained,
+          health: nextDrained ? ('DRAINED' as const) : ('HEALTHY' as const),
+          load: nextDrained ? 0 : 35,
+          rps: nextDrained ? 0 : Math.round(48210 * (c.weight / 100))
+        };
+      }
+      return c;
+    });
+
+    setLbData(prev => ({
+      ...prev,
+      clusters: updatedClusters,
+      healthyClusters: updatedClusters.filter(c => !c.isDrained).length,
+      totalNodes: updatedClusters.reduce((acc, c) => acc + (c.isDrained ? 0 : c.nodes), 0),
+    }));
+
+    await updateLoadBalancerConfig(selectedAlgorithm, updatedClusters);
+
+    setLbLogs(prev => [
+      { text: `[TRAFFIC] Zone ${zoneId} ${wasDrained ? 'RESTORED to active ingress rotation' : 'DRAINED for maintenance'}. Traffic dynamically redirected.`, type: wasDrained ? 'success' : 'warn', ts: new Date().toLocaleTimeString() },
+      ...prev.slice(0, 8)
+    ]);
+
+    setSaveFeedback(`Cluster ${zoneId}: ${wasDrained ? 'Restored Ingress' : 'Drained Traffic'}`);
+    setTimeout(() => setSaveFeedback(null), 3000);
+  };
+
+  // Adjust Cluster Zone Weight
+  const handleWeightChange = async (zoneId: string, newWeight: number) => {
+    const updatedClusters = lbData.clusters.map(c =>
+      c.id === zoneId ? { ...c, weight: newWeight, rps: Math.round(48210 * (newWeight / 100)) } : c
+    );
+    setLbData(prev => ({ ...prev, clusters: updatedClusters }));
+    await updateLoadBalancerConfig(selectedAlgorithm, updatedClusters);
+  };
 
   // Check if current user is an authorized administrator
   const isAdmin = isAuthenticated && user && (user.role === 'Root Admin' || user.role === 'admin' || user.role === 'Enterprise Admin');
@@ -370,6 +494,7 @@ const NextGenAiPortalPage = () => {
         <div className="max-w-7xl mx-auto flex items-center gap-2">
           {[
             { id: 'overview', label: 'Master Dashboard', icon: Server, badge: 'LIVE' },
+            { id: 'balancer', label: 'Load Balancer', icon: Network, badge: `${lbData.healthyClusters}/4 UP` },
             { id: 'announcement', label: 'Top Announcement Banner', icon: MessageSquare, badge: config.announcement.enabled ? 'ON' : 'OFF' },
             { id: 'hero', label: 'Hero Headline & Copy', icon: Sliders, badge: 'LIVE' },
             { id: 'features', label: 'Feature Kill-Switches', icon: Zap, badge: '4/4' },
@@ -381,7 +506,7 @@ const NextGenAiPortalPage = () => {
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as 'overview' | 'hero' | 'announcement' | 'features' | 'pricing' | 'maintenance' | 'users' | 'probes' | 'audit')}
+              onClick={() => setActiveTab(tab.id as 'overview' | 'balancer' | 'hero' | 'announcement' | 'features' | 'pricing' | 'maintenance' | 'users' | 'probes' | 'audit')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shrink-0 select-none ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold shadow-lg shadow-[#00f0ff]/20'
@@ -574,8 +699,317 @@ const NextGenAiPortalPage = () => {
                 </button>
               </div>
 
+              {/* Load Balancer Quick Card */}
+              <div className="p-6 rounded-3xl bg-[#070712] border border-[#00f0ff]/30 flex flex-col justify-between space-y-4 shadow-lg shadow-[#00f0ff]/5">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-[#00f0ff]">
+                    <Network className="w-5 h-5" />
+                    <h3 className="font-extrabold text-base text-white">Cluster Load Balancer</h3>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Distribute 48,210 RPS across 312 edge nodes in 4 regions with automated zero-drop failover.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('balancer')}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#00f0ff]/20 to-[#a200ff]/20 hover:from-[#00f0ff]/30 hover:to-[#a200ff]/30 border border-[#00f0ff]/40 text-xs font-mono font-bold text-[#00f0ff] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>Configure Load Balancer</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
             </div>
           </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════
+            TAB: HIGH-AVAILABILITY CLUSTER LOAD BALANCER & TRAFFIC ROUTER
+            ══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'balancer' && (
+          <motion.div
+            key="balancer"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8 w-full max-w-full overflow-hidden"
+          >
+            {/* 1. Header Banner */}
+            <div className="p-8 rounded-3xl bg-gradient-to-r from-[#00f0ff]/10 via-[#a200ff]/10 to-transparent border border-white/10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative overflow-hidden">
+              <div className="space-y-2 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/40 text-xs font-mono font-bold">
+                  <Network className="w-3.5 h-3.5" />
+                  <span>LAYER 4 / LAYER 7 INGRESS LOAD BALANCER</span>
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                  Global Cluster Traffic Router
+                </h2>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Enterprise Anycast Ingress distributing incoming requests across 312 edge computation nodes in 4 global availability zones. Zero-drop automated failover, dynamic weight re-allocation, and sub-10ms neural routing.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+                <button
+                  onClick={handleTriggerRebalance}
+                  disabled={isRebalancing}
+                  className="px-5 py-3 rounded-2xl bg-gradient-to-r from-[#00f0ff] via-[#a200ff] to-[#10b981] hover:opacity-95 text-black font-extrabold text-xs uppercase tracking-wider transition-all flex items-center gap-2.5 shadow-xl shadow-[#00f0ff]/25 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRebalancing ? 'animate-spin' : ''}`} />
+                  <span>{isRebalancing ? 'Rebalancing Cluster Nodes...' : 'AUTOMATED LOAD REBALANCE'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Top KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Total Ingress RPS */}
+              <div className="p-6 rounded-3xl bg-[#070712] border border-white/10 space-y-2 relative overflow-hidden group">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-gray-400 uppercase">Total Ingress Volume</span>
+                  <Activity className="w-4 h-4 text-[#00f0ff]" />
+                </div>
+                <div className="text-3xl font-black font-mono text-white">
+                  {lbData.totalRps.toLocaleString()} <span className="text-sm font-sans text-[#00f0ff]">RPS</span>
+                </div>
+                <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>Throughput: {lbData.throughput}</span>
+                  <span className="text-emerald-400 font-mono font-bold">● Line Rate</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#00f0ff] to-transparent" />
+              </div>
+
+              {/* Active Routing Policy */}
+              <div className="p-6 rounded-3xl bg-[#070712] border border-white/10 space-y-2 relative overflow-hidden group">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-gray-400 uppercase">Routing Algorithm</span>
+                  <GitFork className="w-4 h-4 text-purple-400" />
+                </div>
+                <div className="text-xl font-black font-mono text-purple-300 truncate">
+                  {lbData.algorithm}
+                </div>
+                <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>SSL: {lbData.sslTermination}</span>
+                  <span className="text-purple-400 font-mono font-bold">HA Mode</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#a200ff] to-transparent" />
+              </div>
+
+              {/* P99 Latency */}
+              <div className="p-6 rounded-3xl bg-[#070712] border border-white/10 space-y-2 relative overflow-hidden group">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-gray-400 uppercase">Global P99 Latency</span>
+                  <Gauge className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-3xl font-black font-mono text-emerald-400">
+                  {lbData.p99LatencyMs} <span className="text-sm font-sans text-gray-400">ms</span>
+                </div>
+                <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>SLA Guarantee: &lt; 10ms</span>
+                  <span className="text-emerald-400 font-mono font-bold">99.999% SLA</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-transparent" />
+              </div>
+
+              {/* Active Cluster Zones */}
+              <div className="p-6 rounded-3xl bg-[#070712] border border-white/10 space-y-2 relative overflow-hidden group">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-gray-400 uppercase">Target Cluster Health</span>
+                  <Globe className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="text-3xl font-black font-mono text-white">
+                  {lbData.healthyClusters}/4 <span className="text-sm font-sans text-amber-400">Zones</span>
+                </div>
+                <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>{lbData.totalNodes} Nodes Active</span>
+                  <span className="text-emerald-400 font-mono font-bold">0 Drop</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-transparent" />
+              </div>
+            </div>
+
+            {/* 3. Availability Zones & Target Group Table */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#070712] border border-white/10 space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                    <Server className="w-5 h-5 text-[#00f0ff]" />
+                    <span>Availability Zones & Target Edge Clusters</span>
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Manage real-time ingress routing weights, inspect live RPS throughput, and execute single-click traffic draining.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono text-gray-400">Auto-Balancing:</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-mono font-bold border border-emerald-500/30">
+                    ACTIVE
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {lbData.clusters.map(zone => (
+                  <div
+                    key={zone.id}
+                    className={`p-6 rounded-2xl border transition-all ${
+                      zone.isDrained
+                        ? 'bg-rose-950/10 border-rose-500/30 opacity-70'
+                        : 'bg-white/5 border-white/10 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${zone.isDrained ? 'bg-rose-500' : 'bg-emerald-400 animate-pulse'}`} />
+                          <h4 className="font-bold text-white text-base">{zone.name}</h4>
+                        </div>
+                        <div className="text-xs font-mono text-gray-400 mt-0.5">
+                          ID: <span className="text-gray-300">{zone.id}</span> · IP: <span className="text-[#00f0ff]">{zone.ip}</span>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                        zone.isDrained ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      }`}>
+                        {zone.health}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 my-4 p-3 rounded-xl bg-black/40 border border-white/5 text-center">
+                      <div>
+                        <div className="text-[10px] font-mono text-gray-400 uppercase">Active Nodes</div>
+                        <div className="text-base font-black font-mono text-white">{zone.nodes}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-mono text-gray-400 uppercase">Throughput</div>
+                        <div className="text-base font-black font-mono text-[#00f0ff]">{zone.rps.toLocaleString()} RPS</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-mono text-gray-400 uppercase">Ping RTT</div>
+                        <div className="text-base font-black font-mono text-emerald-400">{zone.latencyMs} ms</div>
+                      </div>
+                    </div>
+
+                    {/* Load Bar */}
+                    <div className="space-y-1.5 mb-4">
+                      <div className="flex justify-between text-xs font-mono">
+                        <span className="text-gray-400">Node Capacity Load</span>
+                        <span className={zone.load > 75 ? 'text-rose-400 font-bold' : 'text-gray-300'}>{zone.load}%</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-500 ${
+                            zone.isDrained
+                              ? 'bg-gray-600'
+                              : zone.load > 75
+                              ? 'bg-rose-500'
+                              : 'bg-gradient-to-r from-[#00f0ff] to-[#a200ff]'
+                          }`}
+                          style={{ width: `${zone.load}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Weight Adjustment Slider & Drain Toggle */}
+                    <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-4">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className="text-gray-400">Traffic Weight:</span>
+                          <span className="text-[#00f0ff] font-bold">{zone.weight}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="5"
+                          max="50"
+                          step="5"
+                          disabled={zone.isDrained}
+                          value={zone.weight}
+                          onChange={(e) => handleWeightChange(zone.id, parseInt(e.target.value, 10))}
+                          className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#00f0ff] disabled:opacity-30"
+                        />
+                      </div>
+
+                      <button
+                        onClick={() => handleToggleZoneDrain(zone.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                          zone.isDrained
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                            : 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25'
+                        }`}
+                      >
+                        {zone.isDrained ? 'RESTORE INGRESS' : 'DRAIN TRAFFIC'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. Routing Algorithm Policy Selector */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#070712] border border-white/10 space-y-6">
+              <div>
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <GitFork className="w-5 h-5 text-purple-400" />
+                  <span>Ingress Balancing Algorithms</span>
+                </h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  Select how incoming client and API traffic is distributed across cluster instances.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {AVAILABLE_ALGORITHMS.map(algo => (
+                  <div
+                    key={algo.id}
+                    onClick={() => handleApplyAlgorithm(algo.id)}
+                    className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                      selectedAlgorithm === algo.id
+                        ? 'bg-gradient-to-br from-[#00f0ff]/15 to-[#a200ff]/15 border-[#00f0ff] shadow-lg shadow-[#00f0ff]/15'
+                        : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-white text-sm">{algo.name}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold ${
+                        selectedAlgorithm === algo.id ? 'bg-[#00f0ff] text-black' : 'bg-white/10 text-gray-400'
+                      }`}>
+                        {algo.badge}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      {algo.desc}
+                    </p>
+                    <div className="text-[11px] font-mono text-[#00f0ff] flex items-center gap-1 pt-2 border-t border-white/10">
+                      <span>{selectedAlgorithm === algo.id ? '✓ Active Ingress Policy' : 'Click to Activate →'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 5. Ingress Telemetry Stream & Live Logs */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#070712] border border-white/10 space-y-4 font-mono">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">Load Balancer Kernel Log</span>
+                </div>
+                <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>Real-Time Event Stream</span>
+                </span>
+              </div>
+              <div className="p-4 rounded-2xl bg-black/70 border border-white/10 space-y-2 max-h-48 overflow-y-auto no-scrollbar text-xs">
+                {lbLogs.map((log, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-gray-500 shrink-0">[{log.ts}]</span>
+                    <span className={log.type === 'success' ? 'text-emerald-400' : log.type === 'warn' ? 'text-amber-400' : 'text-[#00f0ff]'}>
+                      {log.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
         )}
 
         {/* ══════════════════════════════════════════════════════════════

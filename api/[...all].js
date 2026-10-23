@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     return handleAiChatStream(req, res);
   }
 
-  if (url.includes('security') || url.includes('webhooks')) {
+  if (url.includes('security') || url.includes('webhooks') || url.includes('cluster') || url.includes('load-balancer')) {
     if (handleSecurityApi(req, res)) return;
   }
 
