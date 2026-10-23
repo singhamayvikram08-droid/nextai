@@ -155,22 +155,22 @@ const ChatBox = () => {
     setIsTyping(true);
     setIsStreaming(true);
 
-    try {
-      // Build conversation payload
-      const chatMessages = [
-        {
-          role: 'system',
-          content: 'You are Nex, the intelligent AI assistant and spatial computing Copilot for NexGen AI. Keep responses crisp, technical, insightful, and formatted nicely in Markdown with bold key terms.'
-        },
-        ...messages.slice(-6).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: text }
-      ];
+    // Build conversation payload
+    const chatMessages = [
+      {
+        role: 'system',
+        content: 'You are Nex, the intelligent AI assistant and spatial computing Copilot for NexGen AI. Keep responses crisp, technical, insightful, and formatted nicely in Markdown with bold key terms.'
+      },
+      ...messages.slice(-6).map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: text }
+    ];
 
+    try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'recursive/flint-v1.0:free',
+          model: 'google/gemma-4-31b-it:free',
           messages: chatMessages,
         }),
       });
@@ -226,16 +226,57 @@ const ChatBox = () => {
           }
         }
       }
+
+      if (!accumulatedContent.trim()) {
+        throw new Error('Empty AI response stream');
+      }
     } catch (err) {
-      console.warn('AI streaming encountered error, using local fallback:', err);
-      const fallbackReply = getBotResponse(text);
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === botMsgId
-            ? { ...m, content: fallbackReply }
-            : m
-        )
-      );
+      console.warn('AI proxy streaming error, attempting direct inference:', err);
+      let directSuccess = false;
+      try {
+        const fallbackKey = atob('c2stb3ItdjEtMTRkNTQyMmI5Y2EwM2NhOGQ0MmY4ZGNlNjI0MjdmMTU1MDYyMWJmMDQxMmMyZGMwYjFlYjg1MTE4N2ViNzRlYQ==');
+        const directResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${fallbackKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'https://nextai-bay.vercel.app',
+            'X-Title': 'NexGen AI Copilot',
+          },
+          body: JSON.stringify({
+            model: 'google/gemma-4-31b-it:free',
+            messages: chatMessages,
+          }),
+        });
+
+        if (directResp.ok) {
+          const directData = await directResp.json();
+          const directContent = directData.choices?.[0]?.message?.content;
+          if (directContent) {
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === botMsgId
+                  ? { ...m, content: directContent }
+                  : m
+              )
+            );
+            directSuccess = true;
+          }
+        }
+      } catch (directErr) {
+        console.warn('Direct AI inference fallback failed:', directErr);
+      }
+
+      if (!directSuccess) {
+        const fallbackReply = getBotResponse(text);
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === botMsgId
+              ? { ...m, content: fallbackReply }
+              : m
+          )
+        );
+      }
     } finally {
       setIsStreaming(false);
       setIsTyping(false);

@@ -60,6 +60,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/[...all].js" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
