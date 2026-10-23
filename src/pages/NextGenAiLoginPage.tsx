@@ -285,7 +285,7 @@ const NextGenAiLoginPage = () => {
                     setAdminEmail(e.target.value);
                     if (formErrors.email) setFormErrors(p => ({ ...p, email: '' }));
                   }}
-                  placeholder="singhamayvikram08@gmail.com"
+                  placeholder="admin@domain.com"
                   className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-sm text-white placeholder-gray-400 font-mono outline-none transition-all ${
                     formErrors.email ? 'border-rose-500 bg-rose-500/10' : 'border-white/10 focus:border-[#ff0055]'
                   }`}
@@ -335,7 +335,7 @@ const NextGenAiLoginPage = () => {
                 type="text"
                 value={securityPin}
                 onChange={(e) => setSecurityPin(e.target.value)}
-                placeholder="190926"
+                placeholder="Enter 6-digit Secret PIN"
                 maxLength={7}
                 className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-gray-600 font-mono outline-none focus:border-[#00f0ff] transition-all"
               />
