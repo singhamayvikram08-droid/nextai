@@ -608,7 +608,7 @@ const NextGenAiPortalPage = () => {
                 <div className="text-2xl font-black font-mono text-purple-400">
                   {config.features.enableChatbot ? 'ENABLED (LIVE)' : 'OFFLINE (KILLSWITCH)'}
                 </div>
-                <div className="text-[11px] text-gray-500">recursive/flint-v1.0 streaming</div>
+                <div className="text-[11px] text-gray-500">Neural AI Copilot streaming</div>
               </div>
 
               <div className="p-6 rounded-3xl bg-[#070712] border border-white/10 space-y-2">
@@ -1217,7 +1217,7 @@ const NextGenAiPortalPage = () => {
                 {
                   key: 'enableChatbot',
                   title: 'AI Copilot Floating ChatBox',
-                  desc: 'Renders the live OpenRouter streaming AI Copilot on the landing page and login screen.',
+                  desc: 'Renders the live neural streaming AI Copilot on the landing page and login screen.',
                   current: formConfig.features.enableChatbot,
                 },
                 {
@@ -1713,7 +1713,7 @@ const NextGenAiPortalPage = () => {
                       {(startupData?.subsystems || [
                         { name: 'Helmet Security Headers', initialized: true },
                         { name: 'Rate Limiter Sliding Window', initialized: true },
-                        { name: 'OpenRouter AI Gateway Stream', initialized: true },
+                        { name: 'Neural AI Gateway Stream', initialized: true },
                         { name: 'RBAC Authorization Engine', initialized: true },
                         { name: 'Structured JSON Logging', initialized: true },
                       ]).map((sub, i) => (

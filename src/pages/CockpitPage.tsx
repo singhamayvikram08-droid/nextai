@@ -1510,7 +1510,7 @@ const CockpitPage = () => {
             to="/dashboard?tab=ai-terminal"
             onClick={() => sound.click()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-purple-300 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer shadow-md"
-            title="Open AI Reasoning Terminal (recursive/flint-v1.0:free)"
+            title="Open AI Reasoning Terminal"
           >
             <Cpu className="w-3.5 h-3.5 text-[#a200ff]" />
             <span>AI Reasoning</span>

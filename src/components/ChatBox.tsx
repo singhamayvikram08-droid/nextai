@@ -111,7 +111,7 @@ const ChatBox = () => {
     {
       id: '0',
       role: 'assistant',
-      content: "Hey! 👋 I'm **Nex**, NexGen's neural AI assistant powered by **recursive/flint-v1.0**. Ask me anything about spatial computing, pricing, or test my reasoning!",
+      content: "Hey! 👋 I'm **Nex**, your NexGen AI assistant. Ask me anything about our 3D spatial computing engine, cloud infrastructure, or pricing!",
       timestamp: new Date(),
     }
   ]);
@@ -321,12 +321,9 @@ const ChatBox = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-white tracking-wide">Nex AI Copilot</h3>
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#00f0ff]/15 text-[#00f0ff] text-[9px] font-mono font-bold border border-[#00f0ff]/30">
-                    FLINT-V1.0
-                  </span>
                 </div>
                 <p className="text-[10px] text-emerald-400 font-mono tracking-wider flex items-center gap-1">
-                  <span>●</span> <span>Live Stream · OpenRouter</span>
+                  <span>●</span> <span>Live Stream</span>
                 </p>
               </div>
               <div className="ml-auto flex gap-2">
@@ -452,7 +449,7 @@ const ChatBox = () => {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask Nex anything (powered by flint-v1.0)..."
+                placeholder="Ask anything..."
                 aria-label="Message prompt to Nex AI assistant"
                 disabled={isStreaming}
                 className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-400 outline-none focus:border-[#a200ff]/50 focus:bg-white/8 transition-all disabled:opacity-50"

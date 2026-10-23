@@ -522,7 +522,7 @@ const DashboardPage = () => {
             { id: 'overview', label: 'Overview', icon: Layers, badge: null },
             { id: 'nodes', label: 'Fleet Nodes', icon: Server, badge: '312' },
             { id: 'console', label: 'Terminal CLI', icon: Terminal, badge: 'v2.4' },
-            { id: 'ai-terminal', label: 'AI Reasoning Terminal', icon: Cpu, badge: 'FLINT' },
+            { id: 'ai-terminal', label: 'AI Reasoning Terminal', icon: Cpu, badge: 'NEURAL' },
             { id: 'spec', label: 'Spec Docs', icon: FileText, badge: 'NG-412' },
           ].map(tab => (
             <button
@@ -1360,11 +1360,11 @@ void main() {
                   </h1>
                   <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold tracking-wider flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    LIVE OPENROUTER PROXY
+                    LIVE NEURAL AI PROXY
                   </span>
                 </div>
                 <p className="text-sm text-gray-300 mt-1">
-                  Direct neural streaming interface powered by <strong className="text-[#00f0ff] font-mono">recursive/flint-v1.0:free</strong> with live Chain-of-Thought reasoning tokens.
+                  Direct neural streaming interface with live Chain-of-Thought reasoning tokens.
                 </p>
               </div>
 
@@ -1427,13 +1427,13 @@ void main() {
                     reasoningThoughts
                   ) : (
                     <div className="text-gray-600 italic">
-                      // Waiting for prompt execution. As recursive/flint-v1.0 processes your request, its internal chain-of-thought reasoning tokens will stream here in real-time.
+                      // Waiting for prompt execution. As the neural model processes your request, its internal chain-of-thought reasoning tokens will stream here in real-time.
                     </div>
                   )}
                 </div>
 
                 <div className="px-5 py-2.5 bg-black/60 border-t border-white/5 flex items-center justify-between text-[11px] font-mono text-gray-400">
-                  <span>Engine: recursive/flint-v1.0:free</span>
+                  <span>Engine: NexGen Neural Core</span>
                   <span>Reasoning Tokens: <strong className="text-[#a200ff]">{reasoningTokens || 0}</strong></span>
                 </div>
               </div>
@@ -1486,7 +1486,7 @@ void main() {
                   if (e.key === 'Enter') runAiInference();
                 }}
                 disabled={isInferencing}
-                placeholder="Enter reasoning query or prompt for recursive/flint-v1.0..."
+                placeholder="Enter reasoning query or prompt..."
                 className="w-full flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 font-mono outline-none focus:border-[#00f0ff] transition-all disabled:opacity-50"
               />
               <button

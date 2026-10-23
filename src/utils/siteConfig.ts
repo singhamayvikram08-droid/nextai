@@ -42,7 +42,7 @@ export const DEFAULT_SITE_CONFIG: ConsumerSiteConfig = {
   announcement: {
     enabled: false,
     badge: 'EXCLUSIVE',
-    text: 'Next Gen AI v2.4 Spatial Engine & OpenRouter Reasoning now live worldwide.',
+    text: 'Next Gen AI v2.4 Spatial Engine & Neural Reasoning now live worldwide.',
     actionText: 'Explore Features',
     actionLink: '#features',
     type: 'cyber',
