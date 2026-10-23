@@ -326,20 +326,13 @@ const ChatBox = () => {
                   <span>●</span> <span>Live Stream</span>
                 </p>
               </div>
-              <div className="ml-auto flex gap-2">
+              <div className="ml-auto flex items-center">
                 <button
                   onClick={() => setIsOpen(false)}
                   aria-label="Minimize chat assistant"
-                  className="text-gray-400 hover:text-white transition-colors p-1"
+                  className="text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors p-1.5 cursor-pointer"
                 >
                   <Minimize2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  aria-label="Close chat assistant"
-                  className="text-gray-400 hover:text-[#ff0055] transition-colors p-1"
-                >
-                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
