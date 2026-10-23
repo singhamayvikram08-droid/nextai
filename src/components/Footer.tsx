@@ -104,15 +104,6 @@ const Footer = () => {
                 Pricing &amp; Plans
               </button>
             </li>
-            <li>
-              <Link 
-                to="/admin" 
-                className="hover:text-[#00f0ff] transition-colors flex items-center gap-1.5"
-              >
-                <span>Admin Portal</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono font-bold">ROOT</span>
-              </Link>
-            </li>
           </ul>
         </div>
 
