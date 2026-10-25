@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import * as THREE from 'three';
 import { usePageSEO } from '../utils/usePageSEO';
+import { useAuth } from '../utils/auth';
 import {
   Hexagon, Shield, Activity, RefreshCw, X,
-  Zap, RotateCcw, Cpu, FileText, Layers, Share2
+  Zap, RotateCcw, Cpu, FileText, Layers, Share2,
+  CheckCircle2, Sparkles, Check
 } from 'lucide-react';
 
 /* ═════════════════════════════════════════════════════════════
@@ -183,8 +185,12 @@ const SATELLITE_NODES: SatelliteNodeData[] = [
 ];
 
 const CockpitPage = () => {
+  const { user } = useAuth();
+  const isPro = Boolean(user?.isPro || user?.tier === 'pro');
+  const isEnterprise = Boolean(user?.tier === 'enterprise');
+
   usePageSEO({
-    title: '3D Spatial Cockpit — NexGen AI PRO WebGL Neural Matrix',
+    title: `3D Spatial Cockpit — NexGen AI ${isPro ? 'PRO ' : ''}WebGL Neural Matrix`,
     description: 'Immersive interactive 3D WebGL and WebGPU spatial computing cockpit. Inspect distributed satellite nodes, render real-time volumetric shaders, and dispatch quantum commands.'
   });
 
@@ -194,6 +200,24 @@ const CockpitPage = () => {
   const [beamActive, setBeamActive] = useState(false);
   const [recalibrating, setRecalibrating] = useState(false);
   const [showSpecModal, setShowSpecModal] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  // Check if deep-linked to a specific node via query param (?node=ID)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const nodeId = params.get('node');
+      if (nodeId) {
+        const found = SATELLITE_NODES.find(n => n.id === Number(nodeId));
+        if (found) {
+          setSelectedNode(found);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Live Hex Streaming Logs
   const [hexLogs, setHexLogs] = useState<string[]>([
@@ -1454,31 +1478,81 @@ const CockpitPage = () => {
     }, 1000);
   };
 
+  // Share Cockpit & Selected Node Action
+  const handleShare = async () => {
+    sound.click();
+    const shareUrl = `${window.location.origin}${window.location.pathname}?node=${selectedNode.id}`;
+    const shareData = {
+      title: 'NexGen AI 3D Spatial Neural Cockpit',
+      text: `Inspect ${selectedNode.name} (${selectedNode.region}) on the NexGen AI 3D Spatial Neural Cockpit.`,
+      url: shareUrl,
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        setShareToast(`Shared ${selectedNode.name} link!`);
+        setTimeout(() => setShareToast(null), 3500);
+        return;
+      } catch (err: unknown) {
+        if ((err as Error)?.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const input = document.createElement('input');
+        input.value = shareUrl;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
+      setShareCopied(true);
+      setShareToast(`Cockpit link copied for ${selectedNode.name}!`);
+      setTimeout(() => setShareCopied(false), 2500);
+      setTimeout(() => setShareToast(null), 3500);
+    } catch {
+      setShareToast('Failed to copy link. Please copy URL from browser bar.');
+      setTimeout(() => setShareToast(null), 3500);
+    }
+  };
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-[#030305] text-slate-100 font-sans select-none flex flex-col">
-      {/* ── 1. GLOBAL COCKPIT TOP HEADER ─────────────── */}
-      <header className="relative z-30 h-16 border-b border-white/10 bg-[#06060c]/90 backdrop-blur-2xl px-4 lg:px-6 flex items-center justify-between shrink-0">
+      {/* ── 1. UNIFIED COCKPIT HEADER BAR (Matches Dashboard Page UI/UX) ── */}
+      <header className="relative z-30 h-16 sm:h-20 border-b border-white/10 bg-[#06060c]/90 backdrop-blur-2xl px-4 lg:px-8 flex items-center justify-between shrink-0 shadow-lg shadow-black/40">
         <div className="flex items-center gap-4">
-          {/* Logo */}
-          <Link to="/" onClick={() => sound.click()} className="flex items-center gap-2.5 group cursor-pointer hover:opacity-95 transition-opacity" title="Return to NexGen AI Home">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00f0ff] to-[#a200ff] flex items-center justify-center text-black shadow-[0_0_15px_rgba(0,240,255,0.4)] group-hover:scale-105 transition-transform">
-              <Hexagon className="w-4 h-4 fill-black" />
+          {/* Logo matching DashboardPage */}
+          <Link
+            to="/"
+            onClick={() => sound.click()}
+            className="flex items-center gap-2.5 group cursor-pointer shrink-0"
+            title="Return to NexGen AI Home"
+          >
+            <div className="relative">
+              <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
+              <Hexagon className="text-[#00f0ff] relative z-10 w-7 h-7 sm:w-8 sm:h-8 group-hover:scale-110 transition-transform" />
             </div>
-            <div>
+            <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-sm tracking-tight text-white group-hover:text-[#00f0ff] transition-colors">
-                  NexGen AI
+                <span className="font-black text-lg sm:text-xl tracking-wide uppercase text-white">
+                  Nex<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00f0ff] to-[#a200ff]">Gen AI</span>
                 </span>
-                <span className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-[#00f0ff]/20 to-[#a200ff]/20 border border-[#00f0ff]/40 text-[#00f0ff] text-[10px] font-black tracking-wider leading-none">
-                  PRO
-                </span>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30">
-                  v4.12 SPATIAL
+                {isPro && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-[#00f0ff]/20 to-[#a200ff]/20 border border-[#00f0ff]/40 text-[#00f0ff] text-[10px] sm:text-xs font-black tracking-widest leading-none">
+                    PRO
+                  </span>
+                )}
+                <span className="ml-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-gray-400 uppercase tracking-widest hidden md:inline-block">
+                  Core v2.4 Spatial
                 </span>
               </div>
-              <div className="text-[9px] font-mono text-gray-400 hidden md:block">
+              <span className="text-[9px] font-mono text-gray-400 hidden lg:block -mt-0.5">
                 Cloud-Native 3D Spatial Computing Engine
-              </div>
+              </span>
             </div>
           </Link>
         </div>
@@ -1493,50 +1567,88 @@ const CockpitPage = () => {
           <span className="text-[10px] font-mono font-bold text-emerald-400">CLUSTER #01 ONLINE</span>
         </div>
 
-        {/* Right Status & Dashboard Navigation Controls */}
-        <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-3 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-mono text-gray-400">
+        {/* Right Status & Controls (Removed AI Reasoning & Telemetry Nodes, Added Share & Dashboard & User Profile) */}
+        <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
+          <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-mono text-gray-400">
             <span>FPS: <strong className="text-emerald-400">{fps}</strong></span>
             <span>•</span>
             <span>BUS: <strong className="text-[#00f0ff]">&lt;0.28ms</strong></span>
           </div>
 
-          <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-mono text-emerald-400">
+          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-mono text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>SYSTEM OPTIMAL</span>
           </div>
 
-          <Link
-            to="/dashboard?tab=ai-terminal"
-            onClick={() => sound.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-purple-300 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer shadow-md"
-            title="Open AI Reasoning Terminal"
+          {/* Share Button in Header */}
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00f0ff]/40 text-gray-200 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+            title="Share 3D Cockpit Link"
           >
-            <Cpu className="w-3.5 h-3.5 text-[#a200ff]" />
-            <span>AI Reasoning</span>
-          </Link>
+            {shareCopied ? (
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5 text-[#00f0ff]" />
+            )}
+            <span className="hidden sm:inline">{shareCopied ? 'Copied!' : 'Share'}</span>
+          </button>
 
-          <Link
-            to="/dashboard?tab=nodes"
-            onClick={() => sound.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer shadow-md"
-            title="Inspect 312 Global Edge Fleet Nodes"
-          >
-            <Activity className="w-3.5 h-3.5 text-[#00f0ff]" />
-            <span>Telemetry [312 Nodes]</span>
-          </Link>
-
+          {/* Return to Dashboard Button (Matches Dashboard's primary 3D Cockpit button styling) */}
           <Link
             to="/dashboard"
             onClick={() => sound.click()}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#00f0ff]/20 to-[#a200ff]/20 border border-[#00f0ff]/30 text-white hover:border-[#00f0ff] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] text-xs font-bold transition-all cursor-pointer"
-            title="Open Platform Dashboard (Fleet Nodes, Terminal CLI, Spec Docs)"
+            className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold text-xs uppercase tracking-wider hover:opacity-90 transition-opacity shadow-lg shadow-[#00f0ff]/20 shrink-0"
+            title="Open Platform Dashboard"
           >
-            <Layers className="w-3.5 h-3.5 text-[#00f0ff]" />
+            <Layers className="w-3.5 h-3.5 fill-black" />
             <span>Dashboard</span>
           </Link>
+
+          {/* User Profile Pill matching Dashboard */}
+          <div className="flex items-center gap-2.5 sm:gap-3 pl-2 sm:pl-3 border-l border-white/10">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#00f0ff] to-[#a200ff] flex items-center justify-center text-xs font-black text-black shadow-lg shadow-[#00f0ff]/20 shrink-0">
+              {user?.avatar || 'MB'}
+            </div>
+            <div className="hidden lg:block text-left">
+              <div className="text-xs font-bold text-white leading-tight">{user?.name || 'Authorized Member'}</div>
+              {isPro ? (
+                <div className="text-[10px] text-[#00f0ff] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-[#00f0ff]" />
+                  <span>PRO SUBSCRIBER</span>
+                </div>
+              ) : isEnterprise ? (
+                <div className="text-[10px] text-[#a200ff] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Shield className="w-3 h-3 text-[#a200ff]" />
+                  <span>ENTERPRISE TIER</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">FREE MEMBER</span>
+                  <Link to="/#pricing" className="text-[9px] font-mono font-bold text-[#00f0ff] hover:underline">
+                    UPGRADE
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </header>
+
+      {/* ── Toast Notification Banner ── */}
+      <AnimatePresence>
+        {shareToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-[#080812]/95 border border-[#00f0ff]/40 text-[#00f0ff] text-xs font-bold font-mono flex items-center gap-2 shadow-[0_0_30px_rgba(0,240,255,0.3)] backdrop-blur-2xl pointer-events-none"
+          >
+            <CheckCircle2 className="w-4 h-4 text-[#00f0ff] shrink-0" />
+            <span className="text-white">{shareToast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── 2. VIEWPORT CONTAINER ──────────────────────────────────── */}
       <div className="relative flex-1 w-full overflow-hidden">
@@ -1550,24 +1662,28 @@ const CockpitPage = () => {
             {/* Sub-pixel Radial Vignette */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(3,3,5,0.75)_100%)] pointer-events-none z-10" />
 
-            {/* Top Cockpit Title & Shader Selector Overlay (Image 2) */}
+            {/* Top Cockpit Title & Shader Selector Overlay */}
             <div className="absolute top-4 left-4 right-4 z-20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pointer-events-none">
               <div className="pointer-events-auto">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                    Spatial Neural Cockpit
-                  </h2>
-                  <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/40 text-[#a200ff] text-[10px] font-mono font-bold tracking-wider">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/20 text-[#00f0ff] text-[11px] font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3 h-3 text-[#00f0ff]" />
+                    <span>Neural Matrix Active</span>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[#a200ff] text-[10px] font-mono font-bold tracking-wider">
                     1.2 TB/s Throughput
                   </span>
                 </div>
-                <p className="text-xs text-gray-400 font-mono mt-0.5">
+                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight mt-1 flex items-center gap-2">
+                  <span>Spatial Neural Cockpit</span>
+                </h2>
+                <p className="text-xs text-gray-400 font-mono mt-0.5 hidden sm:block">
                   Interactive WebGL/WebGPU 3D Neural Matrix &amp; Edge Node Topology Visualizer
                 </p>
               </div>
 
-              {/* Shader Preset Switcher + Reset View + Spec Doc */}
-              <div className="flex items-center gap-2 pointer-events-auto bg-[#080812]/90 backdrop-blur-xl p-1.5 rounded-2xl border border-white/15 shadow-xl">
+              {/* Shader Preset Switcher + Reset View + Spec Doc + Quick Share */}
+              <div className="flex items-center gap-2 pointer-events-auto bg-[#080812]/90 backdrop-blur-xl p-1.5 rounded-2xl border border-white/10 shadow-xl">
                 <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest pl-2">Shader:</span>
                 {(['Hologram', 'Volumetric', 'Quantum'] as const).map(mode => (
                   <button
@@ -1575,7 +1691,7 @@ const CockpitPage = () => {
                     onClick={() => { setShaderMode(mode); sound.click(); }}
                     className={`px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                       shaderMode === mode
-                        ? 'bg-[#00f0ff] text-black shadow-[0_0_12px_rgba(0,240,255,0.4)]'
+                        ? 'bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold shadow-[0_0_12px_rgba(0,240,255,0.4)]'
                         : 'text-gray-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -1585,7 +1701,7 @@ const CockpitPage = () => {
                 <button
                   onClick={() => { resetCameraRef.current(); sound.click(); }}
                   title="Reset Camera View"
-                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-[#00f0ff] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-[#00f0ff] transition-colors cursor-pointer border border-white/5"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
@@ -1596,6 +1712,18 @@ const CockpitPage = () => {
                 >
                   <FileText className="w-3.5 h-3.5 text-[#00f0ff]" />
                   <span className="hidden sm:inline">Spec</span>
+                </button>
+                <button
+                  onClick={handleShare}
+                  title="Share Cockpit Link"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#00f0ff]/10 hover:bg-[#00f0ff]/20 text-[#00f0ff] text-xs font-mono font-bold transition-colors cursor-pointer border border-[#00f0ff]/30 shadow-[0_0_12px_rgba(0,240,255,0.2)] active:scale-95"
+                >
+                  {shareCopied ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Share2 className="w-3.5 h-3.5 text-[#00f0ff]" />
+                  )}
+                  <span>{shareCopied ? 'Copied' : 'Share'}</span>
                 </button>
               </div>
             </div>
@@ -1788,19 +1916,23 @@ const CockpitPage = () => {
               </div>
             </div>
 
-            {/* Bottom-Center Floating Inspector Card (Image 2) */}
+            {/* Bottom-Center Floating Inspector Card */}
             <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-20 w-[94%] max-w-5xl px-2 sm:px-4 pointer-events-auto">
               <motion.div
                 key={selectedNode.id}
                 initial={{ opacity: 1, y: 0 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-3 sm:py-3.5 sm:px-6 rounded-2xl sm:rounded-3xl bg-[#080812]/95 border border-[#00f0ff]/30 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),0_0_40px_rgba(0,240,255,0.12)] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4"
+                className="p-3 sm:py-3.5 sm:px-6 rounded-2xl sm:rounded-3xl bg-[#080812]/95 border border-white/15 hover:border-[#00f0ff]/30 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),0_0_40px_rgba(0,240,255,0.12)] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 transition-colors"
               >
                 {/* Node Identity */}
                 <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#00f0ff]/10 border border-[#00f0ff]/35 flex items-center justify-center text-[#00f0ff] shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.25)]">
-                    <Share2 className="w-5 h-5 text-[#00f0ff]" />
-                  </div>
+                  <button
+                    onClick={handleShare}
+                    title="Click to share this node"
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#00f0ff]/10 hover:bg-[#00f0ff]/20 border border-[#00f0ff]/35 hover:border-[#00f0ff] flex items-center justify-center text-[#00f0ff] shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.25)] cursor-pointer transition-all active:scale-95 group"
+                  >
+                    <Share2 className="w-5 h-5 text-[#00f0ff] group-hover:scale-110 transition-transform" />
+                  </button>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h4 className="text-xs sm:text-sm font-extrabold text-white tracking-wide whitespace-nowrap">
@@ -1820,8 +1952,21 @@ const CockpitPage = () => {
                   </div>
                 </div>
 
-                {/* Actions: Recalibrate Weights & Inject Signal Beam */}
+                {/* Actions: Share Node, Recalibrate Weights & Inject Signal Beam */}
                 <div className="flex items-center gap-2.5 shrink-0 flex-wrap w-full md:w-auto justify-start sm:justify-end">
+                  <button
+                    onClick={handleShare}
+                    className="px-3 sm:px-4 py-2 rounded-xl border border-white/10 hover:border-[#00f0ff]/40 bg-white/5 hover:bg-[#00f0ff]/15 font-mono font-bold text-[10px] sm:text-xs uppercase tracking-wider text-gray-300 hover:text-white transition-all flex items-center gap-2 cursor-pointer shadow-md whitespace-nowrap shrink-0 active:scale-95"
+                    title="Share this node link"
+                  >
+                    {shareCopied ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Share2 className="w-3.5 h-3.5 text-[#00f0ff]" />
+                    )}
+                    <span>{shareCopied ? 'Link Copied!' : 'Share Node'}</span>
+                  </button>
+
                   <button
                     onClick={handleRecalibrate}
                     disabled={recalibrating}
@@ -1867,7 +2012,7 @@ const CockpitPage = () => {
               <div className="flex items-start justify-between pb-4 border-b border-white/10 shrink-0">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-black text-white">NexGen AI PRO Spatial Engine</h3>
+                    <h3 className="text-lg font-black text-white">NexGen AI {isPro ? 'PRO ' : ''}Spatial Engine</h3>
                     <span className="px-2 py-0.5 rounded bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/40 text-[10px] font-mono font-bold">
                       DOC-ID: NG-SYS-412
                     </span>
