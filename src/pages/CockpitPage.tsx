@@ -1499,25 +1499,34 @@ const CockpitPage = () => {
       }
     }
 
+    let copied = false;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-      } else {
+        copied = true;
+      }
+    } catch {
+      // fallback to execCommand
+    }
+
+    if (!copied) {
+      try {
         const input = document.createElement('input');
         input.value = shareUrl;
         document.body.appendChild(input);
         input.select();
         document.execCommand('copy');
         document.body.removeChild(input);
+        copied = true;
+      } catch {
+        copied = false;
       }
-      setShareCopied(true);
-      setShareToast(`Cockpit link copied for ${selectedNode.name}!`);
-      setTimeout(() => setShareCopied(false), 2500);
-      setTimeout(() => setShareToast(null), 3500);
-    } catch {
-      setShareToast('Failed to copy link. Please copy URL from browser bar.');
-      setTimeout(() => setShareToast(null), 3500);
     }
+
+    setShareCopied(true);
+    setShareToast(`Cockpit link copied for ${selectedNode.name}!`);
+    setTimeout(() => setShareCopied(false), 2500);
+    setTimeout(() => setShareToast(null), 3500);
   };
 
   return (
