@@ -8,7 +8,6 @@ import Showcase from './components/Showcase'
 import Testimonials from './components/Testimonials'
 import CTA from './components/CTA'
 import Footer from './components/Footer'
-import ChatBox from './components/ChatBox'
 import NeuralInterface from './components/NeuralInterface'
 import CockpitSection from './components/CockpitSection'
 import Pricing from './components/Pricing'
@@ -119,8 +118,6 @@ function App() {
             <CTA />
             <Footer />
           </main>
-
-          {config.features.enableChatbot && <ChatBox />}
         </>
       )}
     </div>

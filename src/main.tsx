@@ -18,6 +18,7 @@ const TermsPage = lazy(() => import('./pages/TermsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const NextGenAiPortalPage = lazy(() => import('./pages/NextGenAiPortalPage'));
 const NextGenAiLoginPage = lazy(() => import('./pages/NextGenAiLoginPage'));
+const ChatBox = lazy(() => import('./components/ChatBox'));
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -138,6 +139,9 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/admin-portal" element={<NextGenAiPortalPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
+        </Suspense>
+        <Suspense fallback={null}>
+          <ChatBox />
         </Suspense>
         <CookieConsentBanner />
       </BrowserRouter>

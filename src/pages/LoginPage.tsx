@@ -10,7 +10,6 @@ import { analytics } from '../utils/analytics';
 import { setStoredAuth, type UserSession } from '../utils/auth';
 import { authRateLimiter, sanitizeInput, logAdminAction } from '../utils/security';
 import { usePageSEO } from '../utils/usePageSEO';
-import ChatBox from '../components/ChatBox';
 import CaptchaWidget from '../components/CaptchaWidget';
 
 /* ═══════════════════════════════════════
@@ -871,9 +870,6 @@ const LoginPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Persistent AI Copilot Assistant */}
-      <ChatBox />
     </div>
   );
 };
