@@ -26,7 +26,7 @@ async function testHttpRoute(routePath) {
   const url = `${BASE_URL}${routePath}`;
   const start = performance.now();
   try {
-    const res = await fetch(url, { redirect: 'manual' });
+    const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(6000) });
     const duration = Math.round(performance.now() - start);
     return {
       path: routePath,
@@ -55,7 +55,8 @@ async function testApiEndpoint(apiPath, method = 'GET', body = null) {
   const start = performance.now();
   const options = {
     method,
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(8000)
   };
   if (body) options.body = JSON.stringify(body);
 
@@ -65,7 +66,16 @@ async function testApiEndpoint(apiPath, method = 'GET', body = null) {
     let json = null;
     let text = null;
     const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
+    if (contentType.includes('text/event-stream')) {
+      if (res.body) {
+        const reader = res.body.getReader();
+        const { value } = await reader.read();
+        reader.cancel().catch(() => {});
+        text = new TextDecoder().decode(value || new Uint8Array());
+      } else {
+        text = 'SSE stream opened';
+      }
+    } else if (contentType.includes('application/json')) {
       json = await res.json();
     } else {
       text = await res.text();
@@ -178,18 +188,33 @@ export async function runComprehensiveDailyHealthCheck() {
 
   // 5. Browser UI Automation: Every Button & Tab Test via Chrome CDP
   console.log('\n▶ [5/6] Executing Headless Chrome Browser Automation (Every Button & Tab)...');
+  const tempProfileDir = `/tmp/chrome-daily-audit-${Date.now()}`;
   const chrome = spawn(CHROME_PATH, [
     '--headless=new',
     '--disable-gpu',
+    '--no-first-run',
+    '--no-default-browser-check',
+    `--user-data-dir=${tempProfileDir}`,
     `--remote-debugging-port=${PORT}`,
     `${BASE_URL}/login`
   ]);
 
-  await new Promise(r => setTimeout(r, 3500));
+  let targets = null;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    await new Promise(r => setTimeout(r, 600));
+    try {
+      const res = await fetch(`http://127.0.0.1:${PORT}/json`);
+      if (res.ok) {
+        targets = await res.json();
+        break;
+      }
+    } catch {
+      // Chrome starting up
+    }
+  }
 
   try {
-    const targetsRes = await fetch(`http://127.0.0.1:${PORT}/json`);
-    const targets = await targetsRes.json();
+    if (!targets) throw new Error(`Could not connect to Chrome on port ${PORT}`);
     const pageTarget = targets.find(t => t.type === 'page');
     const ws = new WebSocket(pageTarget.webSocketDebuggerUrl);
     await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
@@ -227,7 +252,11 @@ export async function runComprehensiveDailyHealthCheck() {
       mobile: false
     });
 
-    // Setup Pro Auth session in browser
+    // Navigate to BASE_URL first to establish the origin context for localStorage
+    await sendCdp('Page.navigate', { url: `${BASE_URL}/login` });
+    await new Promise(r => setTimeout(r, 3500));
+
+    // Setup Pro Auth session in browser on the active origin
     await sendCdp('Runtime.evaluate', {
       expression: `
         (() => {
@@ -302,7 +331,17 @@ export async function runComprehensiveDailyHealthCheck() {
       console.log(`    ${tabPassed ? '✔' : '✖'} Dashboard Tab: [${tabName}] -> Clicked & Rendered`);
     }
 
-    // Click "Sync Telemetry" button
+    // Return to OVERVIEW and click "Sync Telemetry" button
+    await sendCdp('Runtime.evaluate', {
+      expression: `
+        (() => {
+          const overviewBtn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.toUpperCase().includes('OVERVIEW'));
+          if (overviewBtn) overviewBtn.click();
+        })()
+      `
+    });
+    await new Promise(r => setTimeout(r, 600));
+
     const syncBtnResult = await sendCdp('Runtime.evaluate', {
       expression: `
         (() => {
@@ -588,7 +627,14 @@ export async function runComprehensiveDailyHealthCheck() {
     console.error('Browser automation test error:', err);
     results.uiAudit.error = err.message;
   } finally {
-    chrome.kill();
+    try {
+      chrome.kill();
+      if (fs.existsSync(tempProfileDir)) {
+        fs.rmSync(tempProfileDir, { recursive: true, force: true });
+      }
+    } catch {
+      // ignore cleanup errors
+    }
   }
 
   // 6. Score Computation (out of 10)
