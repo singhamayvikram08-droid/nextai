@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send, Bot, User, Minimize2, Cpu } from 'lucide-react';
+import { MessageCircle, ChevronsDown, Send, Bot, User, Cpu } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -15,6 +15,38 @@ const KNOWLEDGE_BASE: { keywords: string[]; response: string }[] = [
   {
     keywords: ['price', 'pricing', 'cost', 'plan', 'subscription', 'how much'],
     response: "NexGen is completely free and open for developers. There are no fees, paywalls, or hidden costs — you get full access to the 3D autonomous engine, edge nodes, and neural shaders with zero billing! 🚀"
+  },
+  {
+    keywords: ['nexgen', 'what is', 'overview', 'about', 'platform'],
+    response: "**NexGen AI** is an advanced 3D spatial cloud computing and distributed neural platform. It bridges WebGL/WebGPU visual computing viewports with 312 global edge nodes to deliver sub-millisecond AI inference, real-time shader pipelines, and quantum-safe cloud operations."
+  },
+  {
+    keywords: ['cockpit', '3d', 'spatial', 'viewport', 'matrix', 'shader', 'volumetric', 'hologram', 'quantum'],
+    response: "The **3D Spatial Cockpit** (`/cockpit`) gives you an interactive neural matrix with WebGL/WebGPU shaders (Hologram, Volumetric, Quantum). You can inspect distributed satellite edge nodes, recalibrate tensor weights, and inject photonic signal beams with sub-millisecond latencies."
+  },
+  {
+    keywords: ['dashboard', 'tabs', 'fleet', 'terminal', 'cli', 'spec'],
+    response: "The **Platform Dashboard** (`/dashboard`) features 5 unified tabs: **Overview** (telemetry sync & subscription), **Fleet Nodes** (312 global edge units), **Terminal CLI** (v2.4 interactive shell), **AI Reasoning Terminal** (neural inference), and **Spec Docs** (NG-SYS-412 architectural manual)."
+  },
+  {
+    keywords: ['load balancer', 'rebalance', 'cluster', 'failover', 'traffic', 'routing'],
+    response: "Our **High-Availability Load Balancer** operates 5 intelligent routing policies (Weighted Round-Robin, Least Connections, Latency-Based, IP Hash, and Quantum Dynamic Mesh). You can trigger automated traffic redistribution directly from the Dashboard or via `POST /api/v1/cluster/rebalance`."
+  },
+  {
+    keywords: ['share', 'share button', 'link', 'collaborate'],
+    response: "You can **Share** any node or view directly! In the Cockpit, clicking the **Share** button in the top bar or bottom node inspector copies a deep link (`?node=ID`) to your clipboard with instant toast confirmation and Web Share API support."
+  },
+  {
+    keywords: ['pro', 'upgrade', 'buy', 'tier', 'subscriber'],
+    response: "The **PRO Tier** unlocks the glowing **PRO** emblem, volumetric shader compute, high-frequency quantum telemetry, and priority access to all 312 edge nodes. You can upgrade anytime via the pricing portal."
+  },
+  {
+    keywords: ['admin', 'root', 'portal', 'pin', 'security'],
+    response: "The **Admin Portal** (`/admin/login` or `/portal`) provides root governance with cryptographic HMAC CAPTCHA challenges, PIN authorization, tamper-evident audit logging, and cluster controls."
+  },
+  {
+    keywords: ['help', 'commands', 'what can you do', 'menu', 'options'],
+    response: "I'm **Nex**, your AI assistant! You can ask me about:\n- 🚀 **3D Spatial Cockpit** & WebGL Shaders\n- 📊 **Platform Dashboard** & Edge Nodes\n- ⚖️ **Load Balancer** & Cluster Rebalancing\n- 🔗 **Sharing** deep links\n- 💎 **PRO Tier** & Pricing\n- 📖 **API Endpoints** & Documentation"
   },
   {
     keywords: ['feature', 'what can', 'capabilities', 'does it do', 'functionality'],
@@ -170,7 +202,7 @@ const ChatBox = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'google/gemma-4-31b-it:free',
+          model: 'openrouter/free',
           messages: chatMessages,
         }),
       });
@@ -213,7 +245,7 @@ const ChatBox = () => {
                   m.id === botMsgId
                     ? {
                         ...m,
-                        content: accumulatedContent,
+                        content: accumulatedContent || accumulatedReasoning,
                         reasoning: accumulatedReasoning,
                         reasoningTokens: rTokens,
                       }
@@ -228,7 +260,11 @@ const ChatBox = () => {
       }
 
       if (!accumulatedContent.trim()) {
-        throw new Error('Empty AI response stream');
+        if (accumulatedReasoning.trim()) {
+          accumulatedContent = accumulatedReasoning.trim();
+        } else {
+          throw new Error('Empty AI response stream');
+        }
       }
     } catch (err) {
       console.warn('AI proxy streaming error, attempting direct inference:', err);
@@ -244,7 +280,7 @@ const ChatBox = () => {
             'X-Title': 'NexGen AI Copilot',
           },
           body: JSON.stringify({
-            model: 'google/gemma-4-31b-it:free',
+            model: 'openrouter/free',
             messages: chatMessages,
           }),
         });
@@ -332,7 +368,7 @@ const ChatBox = () => {
                   aria-label="Minimize chat assistant"
                   className="text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors p-1.5 cursor-pointer"
                 >
-                  <Minimize2 className="w-4 h-4" />
+                  <ChevronsDown className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -366,6 +402,8 @@ const ChatBox = () => {
                   }`}>
                     {msg.content ? (
                       formatMessage(msg.content)
+                    ) : msg.reasoning ? (
+                      formatMessage(msg.reasoning)
                     ) : (
                       <span className="text-gray-400 italic text-xs flex items-center gap-1.5 font-mono">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#00f0ff] animate-ping" />
@@ -471,7 +509,7 @@ const ChatBox = () => {
         <AnimatePresence mode="wait">
           {isOpen ? (
             <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
-              <X className="w-6 h-6 text-white" />
+              <ChevronsDown className="w-6 h-6 text-white" />
             </motion.div>
           ) : (
             <motion.div key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
