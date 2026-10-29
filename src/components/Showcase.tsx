@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Play, Pause, Zap, Cpu, Volume2, VolumeX, ZoomIn, ZoomOut
+  Volume2, VolumeX, ZoomIn, X, Cpu
 } from 'lucide-react';
 
 const PARTICLES = Array.from({ length: 15 }, (_, i) => ({
@@ -46,23 +46,194 @@ const NeuralGrid3D = () => {
 };
 
 const Showcase = () => {
-  // Inline Video State (Playing inside container only, no modal popup)
-  const [isPlaying, setIsPlaying] = useState(false);
+  // ── 6 CORE PLAYBACK STATES (EXACT SPECIFICATION) ──
+  const [isVisible, setIsVisible] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [videoMeta, setVideoMeta] = useState<{ width: number; height: number; is4K: boolean } | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [restartOnReturn, setRestartOnReturn] = useState(false);
+  const [interactionPlayback, setInteractionPlayback] = useState(false);
 
+  // Video resolution / metadata
+  const [videoMeta, setVideoMeta] = useState<{ width: number; height: number; is4K: boolean } | null>(null);
+
+  // DOM Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
-  const userManuallyPaused = useRef(false);
 
-  const handleTimeUpdate = () => {
-    if (videoRef.current && videoRef.current.duration) {
-      setProgress((videoRef.current.currentTime / videoRef.current.duration) * 100);
+  // Synchronized refs to guarantee zero stale closures in observers and async promises
+  const isVisibleRef = useRef(false);
+  const isMutedRef = useRef(true);
+  const isPlayingRef = useRef(false);
+  const restartOnReturnRef = useRef(false);
+  const interactionPlaybackRef = useRef(false);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
+  useEffect(() => {
+    restartOnReturnRef.current = restartOnReturn;
+  }, [restartOnReturn]);
+
+  useEffect(() => {
+    interactionPlaybackRef.current = interactionPlayback;
+  }, [interactionPlayback]);
+
+  // Safe playback trigger handling browser policies and promise rejections
+  const safePlay = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!video.paused) {
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+      return;
+    }
+
+    video.muted = isMutedRef.current;
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromiseRef.current = playPromise;
+      playPromise
+        .then(() => {
+          setIsPlaying(true);
+          isPlayingRef.current = true;
+          playPromiseRef.current = null;
+        })
+        .catch((err) => {
+          playPromiseRef.current = null;
+          // Handle browser autoplay policy restrictions gracefully
+          if (!isMutedRef.current) {
+            console.warn('[VideoPlayer] Autoplay with audio restricted by browser, falling back to muted:', err);
+            video.muted = true;
+            setIsMuted(true);
+            isMutedRef.current = true;
+            video.play().then(() => {
+              setIsPlaying(true);
+              isPlayingRef.current = true;
+            }).catch(() => {});
+          }
+        });
+    }
+  }, []);
+
+  // Safe pause trigger awaiting in-flight play promises
+  const safePause = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (playPromiseRef.current) {
+      playPromiseRef.current
+        .then(() => {
+          video.pause();
+          setIsPlaying(false);
+          isPlayingRef.current = false;
+        })
+        .catch(() => {
+          video.pause();
+          setIsPlaying(false);
+          isPlayingRef.current = false;
+        });
+    } else {
+      video.pause();
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+    }
+  }, []);
+
+  // ── SCROLL-BASED PLAYBACK VIA INTERSECTION OBSERVER ──
+  useEffect(() => {
+    const container = playerContainerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const inView = entry.isIntersecting;
+          setIsVisible(inView);
+          isVisibleRef.current = inView;
+
+          const video = videoRef.current;
+          if (!video) return;
+
+          if (inView) {
+            // Player returned to view
+            if (restartOnReturnRef.current) {
+              // Interrupted during interaction-triggered playback: restart from beginning
+              video.currentTime = 0;
+              setRestartOnReturn(false);
+              restartOnReturnRef.current = false;
+            }
+            safePlay();
+          } else {
+            // Player left view: pause immediately
+            if (interactionPlaybackRef.current && !video.ended && video.currentTime > 0) {
+              setRestartOnReturn(true);
+              restartOnReturnRef.current = true;
+            }
+            safePause();
+          }
+        });
+      },
+      {
+        threshold: 0.15,
+      }
+    );
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [safePlay, safePause]);
+
+  // ── MUTE / UNMUTE BUTTON EXACT INTERACTION ──
+  const toggleMute = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // 1. Toggle audio state
+    const nextMuted = !isMutedRef.current;
+    setIsMuted(nextMuted);
+    isMutedRef.current = nextMuted;
+    video.muted = nextMuted;
+
+    // 2. Mark interaction-triggered playback mode (stop at end, loop disabled)
+    setInteractionPlayback(true);
+    interactionPlaybackRef.current = true;
+    setRestartOnReturn(false);
+    restartOnReturnRef.current = false;
+
+    // 3. Restart video from the beginning
+    video.currentTime = 0;
+
+    // 4. Start playback from the beginning
+    safePlay();
+  };
+
+  // ── ON ENDED HANDLER: STOP AT END IN INTERACTION MODE ──
+  const handleEnded = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (interactionPlaybackRef.current) {
+      // Interaction-triggered playback ends: stop playback and reset timeline to zero
+      video.pause();
+      video.currentTime = 0;
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      setRestartOnReturn(false);
+      restartOnReturnRef.current = false;
+    } else {
+      // Default continuous autoplay mode: loop continuously
+      video.currentTime = 0;
+      safePlay();
     }
   };
 
+  // ── METADATA & RECOVERY HANDLERS ──
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       const width = videoRef.current.videoWidth;
@@ -75,173 +246,25 @@ const Showcase = () => {
     }
   };
 
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const bar = e.currentTarget;
-    const rect = bar.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-    if (videoRef.current && videoRef.current.duration) {
-      videoRef.current.currentTime = ratio * videoRef.current.duration;
-      setProgress(ratio * 100);
-    }
-  };
-
-  // Play as user comes to that part, stop when user scrolls away
-  useEffect(() => {
-    const container = playerContainerRef.current;
-    const video = videoRef.current;
-    if (!container || !video) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            // User arrived at that part: resume playing if not manually paused
-            if (!userManuallyPaused.current && video.paused) {
-              video.muted = isMuted;
-              video.play().then(() => {
-                setIsPlaying(true);
-              }).catch(() => {
-                video.muted = true;
-                setIsMuted(true);
-                video.play().then(() => setIsPlaying(true)).catch(() => {});
-              });
-            }
-          } else {
-            // User scrolled away from that part: pause video to preserve resources
-            if (!video.paused) {
-              video.pause();
-              setIsPlaying(false);
-            }
-          }
-        });
-      },
-      {
-        threshold: 0.08,
-      }
-    );
-
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isMuted]);
-
-  // Auto zoom out when user scrolls down while in zoomed mode
-  useEffect(() => {
-    if (!isZoomed) return;
-
-    let lastScrollY = window.scrollY;
-
-    const handleWindowScroll = () => {
-      const currentScrollY = window.scrollY;
-      // If user scrolls down by more than 15px, auto zoom out
-      if (currentScrollY > lastScrollY + 15) {
-        setIsZoomed(false);
-      } else if (currentScrollY < lastScrollY - 20) {
-        lastScrollY = currentScrollY;
-      }
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      // Direct mousewheel / trackpad downward gesture triggers auto zoom out
-      if (e.deltaY > 15) {
-        setIsZoomed(false);
-      }
-    };
-
-    let touchStartY = 0;
-    const handleTouchStart = (e: TouchEvent) => {
-      touchStartY = e.touches[0].clientY;
-    };
-    const handleTouchMove = (e: TouchEvent) => {
-      const touchY = e.touches[0].clientY;
-      // Swiping finger up scrolls down
-      if (touchStartY - touchY > 20) {
-        setIsZoomed(false);
-      }
-    };
-
-    window.addEventListener('scroll', handleWindowScroll, { passive: true });
-    window.addEventListener('wheel', handleWheel, { passive: true });
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
-
-    return () => {
-      window.removeEventListener('scroll', handleWindowScroll);
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-    };
-  }, [isZoomed]);
-
-  const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.paused) {
-      userManuallyPaused.current = false;
-      // Only restart from 0 if already ended or near very end
-      if (video.ended || (video.duration && video.currentTime >= video.duration - 0.25)) {
-        video.currentTime = 0;
-        setProgress(0);
-      }
-      video.play().then(() => {
-        setIsPlaying(true);
-      }).catch((err) => {
-        console.warn('Playback request failed, retrying muted:', err);
-        video.muted = true;
-        setIsMuted(true);
-        video.play().then(() => setIsPlaying(true)).catch(() => {});
-      });
-    } else {
-      userManuallyPaused.current = true;
-      video.pause();
-      setIsPlaying(false);
-    }
-  };
-
   const handleVideoError = () => {
-    console.warn('Showcase video element error, attempting seamless recovery...');
+    console.warn('[VideoPlayer] Playback anomaly detected, attempting seamless recovery...');
     const video = videoRef.current;
     if (!video) return;
-    const currentTime = video.currentTime || 0;
+    const time = video.currentTime || 0;
     video.load();
-    video.currentTime = currentTime;
-    video.muted = true;
-    setIsMuted(true);
-    video.play().then(() => setIsPlaying(true)).catch(() => {});
+    video.currentTime = time;
+    video.muted = isMutedRef.current;
+    safePlay();
   };
 
   const handleStalled = () => {
     const video = videoRef.current;
-    if (video && video.paused && !userManuallyPaused.current) {
-      video.play().then(() => setIsPlaying(true)).catch(() => {});
+    if (video && video.paused && isVisibleRef.current) {
+      safePlay();
     }
   };
 
-  const handleEnded = () => {
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime = 0;
-      setProgress(0);
-      video.play().then(() => setIsPlaying(true)).catch(() => {});
-    }
-  };
-
-  const toggleMute = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const nextMuted = !isMuted;
-    video.muted = nextMuted;
-    setIsMuted(nextMuted);
-  };
-
-  const toggleZoom = () => {
-    setIsZoomed((prev) => !prev);
-  };
-
-  // Keyboard shortcut: Esc to exit zoom view
+  // ── KEYBOARD & SCROLL LOCK FOR ZOOM MODAL ──
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isZoomed) {
@@ -250,6 +273,16 @@ const Showcase = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isZoomed]);
+
+  useEffect(() => {
+    if (isZoomed) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
   }, [isZoomed]);
 
   return (
@@ -268,186 +301,230 @@ const Showcase = () => {
           </p>
         </div>
 
-        {/* The Vault Container: Interactive Inline Video Player with dynamic sizing */}
+        {/* Outer Vault Container - Preserves exact layout dimensions so page never reflows */}
         <div
-          className={`relative group mx-auto transition-all duration-500 ease-in-out ${
-            isZoomed ? 'max-w-7xl' : 'max-w-4xl lg:max-w-5xl'
-          }`}
+          ref={playerContainerRef}
+          data-is-visible={isVisible}
+          data-is-playing={isPlaying}
+          data-is-muted={isMuted}
+          data-is-zoomed={isZoomed}
+          data-restart-on-return={restartOnReturn}
+          data-interaction-playback={interactionPlayback}
+          className="relative max-w-4xl lg:max-w-5xl mx-auto w-full aspect-video"
         >
-          {/* Video Wrapper: Strict containment, rounded corners, hardware-accelerated clipping, true dark base */}
+          {/* Ambient Placeholder when expanded in Zoom modal */}
+          {isZoomed && (
+            <div className="absolute inset-0 rounded-2xl sm:rounded-3xl border border-dashed border-[#00f0ff]/30 bg-black/60 flex flex-col items-center justify-center gap-3 backdrop-blur-sm pointer-events-none z-0">
+              <div className="p-3 rounded-2xl bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff]">
+                <ZoomIn className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="text-center font-mono">
+                <p className="text-white text-xs font-bold tracking-wider uppercase">Active In Zoom Modal</p>
+                <p className="text-gray-400 text-[11px] mt-0.5">Press Esc or click close to return</p>
+              </div>
+            </div>
+          )}
+
+          {/* Video Player Frame - Switches seamlessly between Inline and Centered Zoom Modal */}
           <div
-            ref={playerContainerRef}
-            className="relative w-full aspect-video rounded-2xl sm:rounded-3xl border border-white/15 bg-black overflow-hidden shadow-2xl group isolate"
-            style={{
-              transform: 'translateZ(0)',
-              borderRadius: '1.5rem',
+            className={
+              isZoomed
+                ? 'fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/90 backdrop-blur-2xl'
+                : 'relative w-full h-full rounded-2xl sm:rounded-3xl border border-white/15 bg-black overflow-hidden shadow-2xl group isolate'
+            }
+            style={
+              isZoomed
+                ? {
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 99999,
+                  }
+                : {
+                    borderRadius: '1.5rem',
+                  }
+            }
+            onClick={(e) => {
+              if (isZoomed && e.target === e.currentTarget) {
+                setIsZoomed(false);
+              }
             }}
           >
-            {/* Direct Inline Video: 4K 60 FPS Capable with Multi-Source Fallbacks */}
-            <video
-              ref={videoRef}
-              src="/mkv.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              onClick={togglePlay}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-              onError={handleVideoError}
-              onStalled={handleStalled}
-              onWaiting={handleStalled}
-              onEnded={handleEnded}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              className="w-full h-full object-cover object-center block pointer-events-auto cursor-pointer rounded-[inherit] overflow-hidden"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: 'center',
-                borderRadius: 'inherit',
-                transform: 'translateZ(0)',
-              }}
+            {/* Modal Dialog Card (Centered, width: min(95vw, 1200px), max-height: 90vh, uncropped) */}
+            <div
+              className={
+                isZoomed
+                  ? 'relative flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl border border-white/20 bg-black/95 shadow-[0_0_50px_rgba(0,240,255,0.15)] overflow-hidden'
+                  : 'relative w-full h-full overflow-hidden rounded-[inherit]'
+              }
+              style={
+                isZoomed
+                  ? {
+                      width: 'min(95vw, 1200px)',
+                      maxHeight: '90vh',
+                      aspectRatio: videoMeta ? `${videoMeta.width}/${videoMeta.height}` : '16/9',
+                    }
+                  : {
+                      width: '100%',
+                      height: '100%',
+                    }
+              }
             >
-              {/* Primary Spatial Cockpit Neural Stream (mkv.mkv clean watermark-free) */}
-              <source src="/mkv.mp4" type="video/mp4" />
-              <source src="/mkv.mkv" type="video/x-matroska" />
-              <source src="/mkv.mkv" />
-              <source src="/showcase_mesh.mp4" type='video/mp4; codecs="avc1.64002a"' />
-              <source src="/nextgen.mp4" type="video/mp4" />
-              <source src="/video%20nextgen.mp4" type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
+              {/* Single Shared Video Element (Never unmounted, zero playback disruption) */}
+              <video
+                ref={videoRef}
+                src="/mkv.mp4"
+                autoPlay
+                loop={!interactionPlayback}
+                muted={isMuted}
+                playsInline
+                preload="auto"
+                controls={false}
+                onEnded={handleEnded}
+                onPlay={() => {
+                  setIsPlaying(true);
+                  isPlayingRef.current = true;
+                }}
+                onPause={() => {
+                  setIsPlaying(false);
+                  isPlayingRef.current = false;
+                }}
+                onLoadedMetadata={handleLoadedMetadata}
+                onError={handleVideoError}
+                onStalled={handleStalled}
+                onWaiting={handleStalled}
+                className={`w-full h-full block rounded-[inherit] ${
+                  isZoomed ? 'object-contain' : 'object-cover object-center'
+                }`}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: isZoomed ? 'contain' : 'cover',
+                  objectPosition: 'center',
+                  borderRadius: 'inherit',
+                  maxHeight: isZoomed ? '90vh' : undefined,
+                }}
+              >
+                <source src="/mkv.mp4" type="video/mp4" />
+                <source src="/mkv.mkv" type="video/x-matroska" />
+                <source src="/mkv.mkv" />
+                <source src="/showcase_mesh.mp4" type='video/mp4; codecs="avc1.64002a"' />
+                <source src="/nextgen.mp4" type="video/mp4" />
+                <source src="/video%20nextgen.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
 
-            {/* Scanning Light Effect: Strictly confined inside container bounds */}
-            <motion.div 
-              animate={{ top: ['0%', '75%'] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-              className="absolute left-0 w-full h-1/4 bg-gradient-to-b from-transparent via-[#00f0ff15] to-transparent z-10 pointer-events-none"
-            />
+              {/* Clean Close Button in Top-Right Corner (When Zoomed) */}
+              {isZoomed && (
+                <button
+                  type="button"
+                  onClick={() => setIsZoomed(false)}
+                  className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-white/20 text-gray-300 hover:text-white border border-white/20 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 flex items-center justify-center group"
+                  title="Close Modal (Esc)"
+                  aria-label="Close Modal"
+                >
+                  <X className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors" />
+                </button>
+              )}
 
-            {/* Subtle Ambient Depth Gradients */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none rounded-[inherit]" />
+              {/* Scanning Light Effect (Only in inline view) */}
+              {!isZoomed && (
+                <motion.div
+                  animate={{ top: ['0%', '75%'] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+                  className="absolute left-0 w-full h-1/4 bg-gradient-to-b from-transparent via-[#00f0ff15] to-transparent z-10 pointer-events-none"
+                />
+              )}
 
-            {/* 3D Neural Grid Overlay - Bound within container frame */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[inherit]">
-              <NeuralGrid3D />
-            </div>
+              {/* Subtle Ambient Depth Gradients */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none rounded-[inherit]" />
 
-            {/* Top HUD Telemetry Bar inside Container */}
-            <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-20 flex items-center justify-between pointer-events-none">
-              <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
-                <div className="p-2 sm:p-2.5 rounded-xl bg-black/75 border border-[#00f0ff]/30 backdrop-blur-xl shadow-lg">
-                  <Cpu className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f0ff]" />
+              {/* 3D Neural Grid Overlay (Only in inline view) */}
+              {!isZoomed && (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[inherit]">
+                  <NeuralGrid3D />
                 </div>
-                <div>
-                  <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-mono font-bold text-[#00f0ff]">
-                    SPATIAL COMPUTING
+              )}
+
+              {/* Top HUD Telemetry Bar */}
+              <div className="absolute top-3 sm:top-6 left-3 sm:left-6 right-3 sm:right-6 z-20 flex items-center justify-between pointer-events-none">
+                <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-black/75 border border-[#00f0ff]/30 backdrop-blur-xl shadow-lg">
+                    <Cpu className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f0ff]" />
                   </div>
-                  <div className="text-xs sm:text-sm font-black text-white font-mono flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>
-                      {videoMeta?.is4K ? '4K UHD @ 60FPS ACTIVE' : 'LIVE STREAM ACTIVE'}
-                    </span>
+                  <div>
+                    <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-mono font-bold text-[#00f0ff]">
+                      {isZoomed ? 'SPATIAL ENGINE :: EXPANDED' : 'SPATIAL COMPUTING'}
+                    </div>
+                    <div className="text-xs sm:text-sm font-black text-white font-mono flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>
+                        {videoMeta?.is4K ? '4K UHD @ 60FPS ACTIVE' : 'LIVE STREAM ACTIVE'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Bottom Right Stability Indicator */}
-            <div className="absolute bottom-16 sm:bottom-20 right-4 sm:right-6 hidden sm:flex items-center gap-3 text-[#ff0055] text-right pointer-events-none z-10">
-              <div>
-                <div className="text-[9px] uppercase tracking-[0.2em] font-mono font-bold text-[#ff0055]/80">Mesh Routing</div>
-                <div className="text-xs sm:text-sm font-black font-mono tracking-tight text-white">99.8% STABLE</div>
-              </div>
-              <div className="p-2 sm:p-2.5 rounded-xl bg-black/70 border border-[#ff0055]/30 backdrop-blur-xl">
-                <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-[#ff0055]" />
-              </div>
-            </div>
+              {/* Bottom Controls Bar (No play/pause button, no progress bar) */}
+              <div className="absolute bottom-0 left-0 right-0 z-20 p-3 sm:p-5 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-between pointer-events-auto rounded-b-[inherit]">
+                {/* Left: Mute/Unmute button - The ONLY playback control on main player */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    className={`px-3.5 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 ${
+                      isMuted
+                        ? 'bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/50 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.2)]'
+                        : 'bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                    }`}
+                    title={isMuted ? 'Click to Unmute and Restart Audio' : 'Click to Mute and Restart Audio'}
+                    aria-label={isMuted ? 'Unmute Video' : 'Mute Video'}
+                  >
+                    {isMuted ? (
+                      <>
+                        <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>Unmute</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
+                        <span className="text-emerald-300">Mute</span>
+                      </>
+                    )}
+                  </button>
+                </div>
 
-            {/* Sleek Interactive Progress Bar inside the container frame */}
-            <div 
-              onClick={handleProgressClick}
-              className="absolute bottom-0 left-0 right-0 h-1 sm:h-1.5 bg-white/10 hover:h-2 z-30 transition-all cursor-pointer overflow-hidden pointer-events-auto rounded-b-[inherit]"
-              title="Seek playback"
-              role="slider"
-              aria-label="Video Progress"
-              aria-valuenow={Math.round(progress)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div 
-                className="h-full bg-gradient-to-r from-[#00f0ff] via-[#a200ff] to-[#ff0055] transition-all duration-100 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-
-            {/* Bottom Controls inside the Card */}
-            <div className="absolute bottom-1 left-0 right-0 z-20 p-3 sm:p-5 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-between pointer-events-auto rounded-b-[inherit]">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={togglePlay}
-                  className="p-2 sm:p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer flex items-center justify-center backdrop-blur-md"
-                  title={isPlaying ? 'Pause' : 'Play'}
-                  aria-label={isPlaying ? 'Pause' : 'Play'}
-                >
-                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
-                </button>
-
-                {/* Prominent Mute / Unmute Button on bottom */}
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  className={`px-3 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 ${
-                    isMuted
-                      ? 'bg-rose-500/25 hover:bg-rose-500/40 border border-rose-500/60 text-rose-300'
-                      : 'bg-emerald-500/25 hover:bg-emerald-500/40 border border-emerald-500/60 text-emerald-300'
-                  }`}
-                  title={isMuted ? 'Click to Unmute Audio' : 'Click to Mute Audio'}
-                  aria-label={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-                >
-                  {isMuted ? (
-                    <>
-                      <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400 shrink-0" />
-                      <span className="font-bold tracking-wider uppercase text-[11px] sm:text-xs">Unmute</span>
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0 animate-pulse" />
-                      <span className="font-bold tracking-wider uppercase text-[11px] sm:text-xs text-emerald-400">Mute</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Single Zoom In / Zoom Out Button */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={toggleZoom}
-                  className={`px-3 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 ${
-                    isZoomed
-                      ? 'bg-[#00f0ff]/20 hover:bg-[#00f0ff]/30 border border-[#00f0ff]/60 text-[#00f0ff]'
-                      : 'bg-white/10 hover:bg-white/20 border border-white/20 text-white hover:text-[#00f0ff] hover:border-[#00f0ff]/40'
-                  }`}
-                  title={isZoomed ? 'Zoom Out to Compact View (Esc)' : 'Zoom In to Expanded View'}
-                  aria-label={isZoomed ? 'Zoom Out' : 'Zoom In'}
-                >
-                  {isZoomed ? (
-                    <>
-                      <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00f0ff] shrink-0" />
-                      <span className="font-bold tracking-wider uppercase text-[11px] sm:text-xs text-[#00f0ff]">Zoom Out</span>
-                    </>
-                  ) : (
-                    <>
-                      <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white shrink-0" />
-                      <span className="font-bold tracking-wider uppercase text-[11px] sm:text-xs">Zoom In</span>
-                    </>
-                  )}
-                </button>
+                {/* Right: Clean, normal Zoom In button with standard magnifying glass icon */}
+                {!isZoomed ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsZoomed(true)}
+                      className="px-3.5 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white hover:text-[#00f0ff] hover:border-[#00f0ff]/50 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 group"
+                      title="Zoom In (Expanded View)"
+                      aria-label="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4 text-white group-hover:text-[#00f0ff] transition-colors shrink-0" />
+                      <span>Zoom In</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsZoomed(false)}
+                      className="px-3.5 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white hover:text-[#00f0ff] hover:border-[#00f0ff]/50 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95"
+                      title="Exit Expanded View (Esc)"
+                      aria-label="Exit Expanded View"
+                    >
+                      <X className="w-4 h-4 text-white shrink-0" />
+                      <span>Close</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
