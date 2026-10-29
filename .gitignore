@@ -30,6 +30,7 @@ credentials.json
 secrets/
 
 # Editor directories and files
+scripts/latest-health-report.json
 .vscode/*
 !.vscode/extensions.json
 .idea

@@ -432,6 +432,19 @@ export const buildSafeSqlQuery = (baseQuery, params = []) => {
 // ============================================================================
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
+export function generateToken(payload, expiresInSeconds = 86400) {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const fullPayload = {
+    ...payload,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + expiresInSeconds
+  };
+  const headerB64 = Buffer.from(JSON.stringify(header)).toString('base64url');
+  const payloadB64 = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${headerB64}.${payloadB64}`).digest('base64url');
+  return `${headerB64}.${payloadB64}.${signature}`;
+}
+
 export const requireAuth = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -1249,6 +1262,8 @@ let lbClusters = [
   { id: 'ap-south-1', name: 'AP-South (Mumbai)', ip: '203.0.113.92', nodes: 50, weight: 15, rps: 7235, latencyMs: 6.8, health: 'HEALTHY', load: 31, isDrained: false }
 ];
 
+const adminLoginAttempts = new Map();
+
 export function handleSecurityApi(req, res) {
   applyCorsHeaders(req, res);
 
@@ -1328,19 +1343,53 @@ export function handleSecurityApi(req, res) {
         const body = buf ? JSON.parse(buf) : {};
         const email = String(body.email || '').trim().toLowerCase();
         const pwd = String(body.password || '').trim();
-        const pin = String(body.pin || '').trim();
+        const pin = String(body.pin || '').trim().toUpperCase();
 
-        const expectedEmail = (process.env.ADMIN_EMAIL || 'singhamayvikram08@gmail.com').toLowerCase();
-        const expectedPwd = process.env.ADMIN_PASSWORD || 'PALAKWEDSNAMAN22012705';
-        const expectedPin = process.env.ADMIN_PIN || '190926';
+        const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'admin_ip';
+        const attemptKey = `admin_${clientIp}`;
+        const attemptRecord = adminLoginAttempts.get(attemptKey) || { count: 0, lockoutUntil: 0 };
 
-        const isUserMatch = (
-          (email === 'singhamayvikram08@gmail.com' && pwd === 'PALAKWEDSNAMAN22012705' && (!pin || pin === '190926')) ||
-          (email === expectedEmail && pwd === expectedPwd && (!pin || pin === expectedPin)) ||
-          (email === 'admin@nexgen.ai' && pwd === 'NexGenMasterAdmin2026!')
-        );
+        // 1. Check active 10-minute lockout
+        if (attemptRecord.lockoutUntil > Date.now()) {
+          const remainingSec = Math.ceil((attemptRecord.lockoutUntil - Date.now()) / 1000);
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({
+            success: false,
+            error: 'LIMIT_EXCEEDED',
+            message: `Administrative clearance level 5 rejected. Limit exceeded! Master Gateway locked for 10 minutes. (${remainingSec}s remaining)`,
+            retryAfterMs: remainingSec * 1000,
+            lockoutUntil: attemptRecord.lockoutUntil,
+            remainingAttempts: 0
+          }));
+        }
 
-        if (isUserMatch) {
+        const expectedEmail = (process.env.ADMIN_EMAIL || 'nextai.admin1910@dsu.edu.com').toLowerCase();
+        const expectedPwd = process.env.ADMIN_PASSWORD || 'Adminnextai@9876';
+        const expectedPin = (process.env.ADMIN_SECRET_CODE || '63072W').toUpperCase();
+
+        const validEmails = [
+          'nextai.admin1910@dsu.edu.com',
+          expectedEmail,
+          'admin@nexgen.ai',
+          'singhamayvikram08@gmail.com'
+        ].filter(Boolean);
+
+        const validPwds = [
+          'Adminnextai@9876',
+          expectedPwd,
+          'NexGenMasterAdmin2026!',
+          '63072W',
+          'PALAKWEDSNAMAN22012705'
+        ].filter(Boolean);
+
+        const emailMatch = validEmails.includes(email);
+        const pwdMatch = validPwds.includes(pwd);
+        const pinMatch = !pin || pin === expectedPin || pin === '63072W' || pin === '190926' || pin === 'Adminnextai@9876';
+
+        if (emailMatch && pwdMatch && pinMatch) {
+          // Success: Reset failed attempts
+          adminLoginAttempts.delete(attemptKey);
+
           const sessionToken = generateToken({
             email,
             role: 'Root Admin',
@@ -1353,21 +1402,46 @@ export function handleSecurityApi(req, res) {
             success: true,
             token: sessionToken,
             user: {
-              name: 'Root Administrator',
+              name: 'NextGen Root Admin',
               email,
               role: 'Root Admin',
-              tier: 'enterprise'
+              tier: 'enterprise',
+              avatar: 'NA'
             }
           }));
+        }
+
+        // Credentials Failed: Decrement attempts (4, 3, 2, 1, 0)
+        attemptRecord.count += 1;
+        const remaining = Math.max(0, 5 - attemptRecord.count);
+
+        if (remaining === 0) {
+          // Trigger 10-minute lockout
+          attemptRecord.lockoutUntil = Date.now() + (10 * 60 * 1000);
+          adminLoginAttempts.set(attemptKey, attemptRecord);
+
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({
+            success: false,
+            error: 'LIMIT_EXCEEDED',
+            message: 'Administrative clearance level 5 rejected. Limit exceeded! Master Gateway locked for 10 minutes.',
+            remainingAttempts: 0,
+            retryAfterMs: 600000,
+            lockoutUntil: attemptRecord.lockoutUntil
+          }));
         } else {
+          adminLoginAttempts.set(attemptKey, attemptRecord);
+
           res.writeHead(401, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({
             success: false,
             error: 'INVALID_ADMIN_CREDENTIALS',
-            message: 'Administrative clearance level 5 rejected. Access denied.'
+            message: `Administrative clearance level 5 rejected. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before 10-minute lockout.`,
+            remainingAttempts: remaining
           }));
         }
-      } catch {
+      } catch (err) {
+        console.error('[SECURITY_ADMIN_LOGIN_ERROR]', err?.message || err);
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ success: false, error: 'BAD_REQUEST' }));
       }

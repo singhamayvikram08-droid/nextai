@@ -11,6 +11,17 @@ export interface UserSession {
   subscriptionStatus?: 'active' | 'trialing' | 'none';
   subscribedAt?: string;
   loginAt: string;
+  // DPDP Act 2023 Statutory Age & Parental Consent fields
+  ageVerified?: boolean;
+  dateOfBirth?: string;
+  isMinor?: boolean;
+  parentalConsent?: {
+    guardianName: string;
+    guardianEmail: string;
+    consentGranted: boolean;
+    consentTimestamp: string;
+    verificationMethod: 'otp_email' | 'digital_undertaking';
+  };
 }
 
 export const AUTH_STORAGE_KEY = 'nexgen_user_auth';
@@ -32,16 +43,20 @@ export const setStoredAuth = (user: Partial<UserSession>): UserSession => {
   const isPro = tier === 'pro' || tier === 'enterprise' || Boolean(user.isPro);
 
   const session: UserSession = {
-    name: user.name || current?.name || 'Authorized Member',
-    email: user.email || current?.email || 'member@nexgen.io',
+    name: user.name || current?.name || 'Amay Vikram Singh',
+    email: user.email || current?.email || 'developer@nexgen.io',
     role: user.role || current?.role || (isPro ? 'Pro Subscriber' : 'Member'),
-    avatar: (user.name ? user.name.split(' ').map(n => n[0]).join('') : (current?.avatar || 'MB')).slice(0, 2).toUpperCase(),
+    avatar: (user.name ? user.name.split(' ').map(n => n[0]).join('') : (current?.avatar || 'AV')).slice(0, 2).toUpperCase(),
     token: user.token || current?.token || 'NXG_' + Math.random().toString(36).substring(2, 10).toUpperCase(),
     tier: tier,
     isPro: isPro,
     subscriptionStatus: isPro ? 'active' : 'none',
     subscribedAt: isPro ? (user.subscribedAt || current?.subscribedAt || new Date().toISOString()) : undefined,
     loginAt: current?.loginAt || new Date().toISOString(),
+    ageVerified: user.ageVerified !== undefined ? user.ageVerified : current?.ageVerified,
+    dateOfBirth: user.dateOfBirth || current?.dateOfBirth,
+    isMinor: user.isMinor !== undefined ? user.isMinor : current?.isMinor,
+    parentalConsent: user.parentalConsent || current?.parentalConsent,
   };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
   window.dispatchEvent(new Event('nexgen-auth-changed'));

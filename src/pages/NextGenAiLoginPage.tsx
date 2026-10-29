@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Shield, Lock, Key, AlertOctagon,
-  RefreshCw, CheckCircle2,
+  RefreshCw, CheckCircle2, Clock,
   Eye, EyeOff
 } from 'lucide-react';
 import { setStoredAuth } from '../utils/auth';
 import { usePageSEO } from '../utils/usePageSEO';
-import { authRateLimiter, logAdminAction } from '../utils/security';
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 minutes (600,000 ms)
 
 const NextGenAiLoginPage = () => {
   usePageSEO({
@@ -26,6 +28,75 @@ const NextGenAiLoginPage = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [authSuccess, setAuthSuccess] = useState(false);
+
+  // ── ATTEMPT TRACKING (5, 4, 3, 2, 1) & 10-MINUTE LOCKOUT TIMER ──
+  const [failedAttempts, setFailedAttempts] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('nexgen_admin_failed_attempts');
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [lockoutUntil, setLockoutUntil] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('nexgen_admin_lockout_until');
+      const val = saved ? parseInt(saved, 10) || 0 : 0;
+      return val > Date.now() ? val : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [remainingTimeSec, setRemainingTimeSec] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('nexgen_admin_lockout_until');
+      const val = saved ? parseInt(saved, 10) || 0 : 0;
+      return val > Date.now() ? Math.ceil((val - Date.now()) / 1000) : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const isLockedOut = lockoutUntil > 0 && remainingTimeSec > 0;
+  const remainingAttempts = Math.max(0, MAX_ATTEMPTS - failedAttempts);
+
+  // Format MM:SS for 10-minute countdown
+  const formatTimer = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // Live real-time 1-second countdown clock for 10-minute lockout
+  useEffect(() => {
+    if (!lockoutUntil || lockoutUntil <= Date.now()) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = Math.max(0, Math.ceil((lockoutUntil - now) / 1000));
+      setRemainingTimeSec(diff);
+
+      if (diff <= 0) {
+        clearInterval(interval);
+        setLockoutUntil(0);
+        setRemainingTimeSec(0);
+        setFailedAttempts(0);
+        try {
+          localStorage.removeItem('nexgen_admin_lockout_until');
+          localStorage.removeItem('nexgen_admin_failed_attempts');
+        } catch {
+          /* ignore storage error */
+        }
+        setErrorMessage('Security lockout expired. You have 5 fresh authentication attempts.');
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
 
   // Anti-Spam & Bot Protection
   const [honeypot, setHoneypot] = useState('');
@@ -53,6 +124,15 @@ const NextGenAiLoginPage = () => {
     e.preventDefault();
     setErrorMessage(null);
 
+    // 0. Active 10-Minute Lockout Check
+    if (lockoutUntil > Date.now()) {
+      const secs = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      setErrorMessage(
+        `Administrative clearance level 5 rejected. Limit exceeded! Master Gateway locked for 10 minutes. Time remaining: ${formatTimer(secs)}.`
+      );
+      return;
+    }
+
     // 1. Bot check via honeypot
     if (honeypot.trim()) {
       console.warn('Bot access detected via honeypot field');
@@ -64,14 +144,7 @@ const NextGenAiLoginPage = () => {
       return;
     }
 
-    // 3. Rate limiting check
-    const rateCheck = authRateLimiter.checkLimit(adminEmail ? adminEmail.toLowerCase() : 'admin_login_ip');
-    if (!rateCheck.allowed) {
-      setErrorMessage(`Master Gateway Rate-Limit: Too many attempts. Please wait ${Math.ceil(rateCheck.retryAfterMs / 1000)} seconds.`);
-      return;
-    }
-
-    // 4. Form validation
+    // 3. Form validation
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setFormErrors(errs);
@@ -84,73 +157,82 @@ const NextGenAiLoginPage = () => {
 
     const email = adminEmail.trim().toLowerCase();
     const pwd = adminPassword.trim();
-    const pin = securityPin.trim();
+    const pin = securityPin.trim().toUpperCase();
 
-    // 1. Authorized Root Administrator Credentials check
-    const isMasterAuthorized = (
-      (email === 'singhamayvikram08@gmail.com' && pwd === 'PALAKWEDSNAMAN22012705' && (!pin || pin === '190926')) ||
-      (email === 'admin@nexgen.ai' && pwd === 'NexGenMasterAdmin2026!')
-    );
+    // ── MASTER CREDENTIAL AUTHORIZATION ──
+    const isAuthorizedEmail = (email === 'nextai.admin1910@dsu.edu.com' || email === 'admin@nexgen.ai');
+    const isAuthorizedPwd = (pwd === 'Adminnextai@9876' || pwd === 'NexGenMasterAdmin2026!' || pwd === '63072W');
+    const isAuthorizedPin = (!pin || pin === '63072W' || pin === 'Adminnextai@9876');
+
+    const isMasterAuthorized = isAuthorizedEmail && isAuthorizedPwd && isAuthorizedPin;
 
     if (isMasterAuthorized) {
+      // CLEAR LOCKOUT & FAILED ATTEMPTS
+      setFailedAttempts(0);
+      setLockoutUntil(0);
+      setRemainingTimeSec(0);
+      try {
+        localStorage.removeItem('nexgen_admin_failed_attempts');
+        localStorage.removeItem('nexgen_admin_lockout_until');
+      } catch {
+        /* ignore storage error */
+      }
+
+      // Optional background handshake with backend API
+      try {
+        fetch('/api/security/admin-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: pwd, pin }),
+        }).catch(() => {});
+      } catch {
+        /* ignore network error */
+      }
+
       setAuthSuccess(true);
-      const session = setStoredAuth({
-        name: 'Root Administrator',
-        email,
+      setStoredAuth({
+        name: 'NextGen Root Admin',
+        email: 'nextai.admin1910@dsu.edu.com',
         role: 'Root Admin',
         tier: 'enterprise',
-        isPro: true,
-        token: 'NXG_ROOT_MASTER_' + Math.random().toString(36).substring(2, 12).toUpperCase(),
+        avatar: 'NA',
       });
-      logAdminAction('ROOT_ADMIN_LOGIN_SUCCESS', session, '/admin', 'SUCCESS', { email });
-
-      // Notify backend if available
-      fetch('/api/security/admin-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pwd, pin }),
-      }).catch(() => {});
-
       setTimeout(() => {
-        navigate('/admin');
-      }, 700);
+        navigate('/next-gen-ai');
+      }, 800);
       return;
     }
 
-    // 2. Fallback to API verification if custom credentials configured on server
+    // ── CREDENTIALS REJECTED: DECREMENT ATTEMPTS (4, 3, 2, 1, 0) ──
+    setIsAuthenticating(false);
+    const newFailedCount = failedAttempts + 1;
+    setFailedAttempts(newFailedCount);
     try {
-      const res = await fetch('/api/security/admin-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pwd, pin }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setAuthSuccess(true);
-        setStoredAuth(data.user || {
-          name: 'Root Administrator',
-          email,
-          role: 'Root Admin',
-          tier: 'enterprise',
-          isPro: true,
-          token: data.token,
-        });
-        setTimeout(() => {
-          navigate('/admin');
-        }, 700);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setErrorMessage(
-          data.message || 'ACCESS DENIED [SECURITY LEVEL 5]: Root administrative credentials rejected. Access forbidden.'
-        );
-        setIsAuthenticating(false);
-      }
+      localStorage.setItem('nexgen_admin_failed_attempts', String(newFailedCount));
     } catch {
+      /* ignore storage error */
+    }
+
+    const remaining = Math.max(0, MAX_ATTEMPTS - newFailedCount);
+
+    if (remaining > 0) {
+      // Still has attempts left: Show remaining count (e.g. 4, 3, 2, 1)
       setErrorMessage(
-        'ACCESS DENIED [SECURITY LEVEL 5]: Root administrative credentials rejected. Access forbidden.'
+        `Administrative clearance level 5 rejected. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before 10-minute lockout.`
       );
-      setIsAuthenticating(false);
+    } else {
+      // 5 failed attempts reached: TRIGGER 10-MINUTE LOCKOUT
+      const lockUntil = Date.now() + LOCKOUT_DURATION_MS;
+      setLockoutUntil(lockUntil);
+      setRemainingTimeSec(Math.ceil(LOCKOUT_DURATION_MS / 1000));
+      try {
+        localStorage.setItem('nexgen_admin_lockout_until', String(lockUntil));
+      } catch {
+        /* ignore storage error */
+      }
+      setErrorMessage(
+        `Administrative clearance level 5 rejected. Limit exceeded! Master Gateway locked for 10 minutes.`
+      );
     }
   };
 
@@ -218,9 +300,84 @@ const NextGenAiLoginPage = () => {
 
         <div className="p-8 rounded-3xl bg-[#06060e]/90 backdrop-blur-2xl border border-white/10 shadow-2xl space-y-6">
           
+          {/* ── 10-MINUTE LOCKOUT ACTIVE BANNER (LIMIT EXCEEDED) ── */}
+          <AnimatePresence>
+            {isLockedOut && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="p-5 rounded-2xl bg-rose-500/15 border-2 border-rose-500/60 text-rose-200 font-mono space-y-3 shadow-xl shadow-rose-950/50"
+              >
+                <div className="flex items-center justify-between border-b border-rose-500/30 pb-2">
+                  <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
+                    <Clock className="w-4 h-4 animate-pulse shrink-0" />
+                    <span>LIMIT EXCEEDED · 10 MINUTE LOCKOUT</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/30 text-rose-300 border border-rose-500/60 uppercase animate-pulse">
+                    FROZEN
+                  </span>
+                </div>
+
+                <div className="text-center py-2 space-y-1">
+                  <div className="text-[11px] text-gray-400 uppercase tracking-widest">Time Remaining Before Reset:</div>
+                  <div className="text-4xl sm:text-5xl font-black text-rose-400 tracking-widest font-mono drop-shadow-[0_0_20px_rgba(244,63,94,0.5)]">
+                    {formatTimer(remainingTimeSec)}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-gray-300 leading-relaxed text-center">
+                  Administrative clearance level 5 rejected 5 consecutive times. All inputs are frozen for 10 minutes to protect against brute-force intrusion.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── ATTEMPTS REMAINING INDICATOR (4, 3, 2, 1, 0) ── */}
+          {!isLockedOut && remainingAttempts < MAX_ATTEMPTS && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 font-mono text-xs space-y-2"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-amber-400">
+                  <AlertOctagon className="w-4 h-4 shrink-0" />
+                  <span>AUTHORIZATION ATTEMPTS REMAINING</span>
+                </div>
+                <span className="px-2 py-0.5 rounded font-black text-[11px] bg-amber-500/30 text-amber-300 border border-amber-500/50">
+                  {remainingAttempts} / {MAX_ATTEMPTS}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((idx) => {
+                    const isRemaining = idx <= remainingAttempts;
+                    return (
+                      <span
+                        key={idx}
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs transition-all ${
+                          isRemaining
+                            ? 'bg-amber-400/20 text-amber-300 border border-amber-400/60 shadow-[0_0_8px_rgba(251,191,36,0.3)]'
+                            : 'bg-rose-500/30 text-rose-400 border border-rose-500/60 line-through opacity-60'
+                        }`}
+                      >
+                        {idx}
+                      </span>
+                    );
+                  })}
+                </div>
+                <span className="text-[10px] text-gray-400">
+                  {remainingAttempts} try left before 10m freeze
+                </span>
+              </div>
+            </motion.div>
+          )}
+
           {/* Real-Time Error Alert */}
           <AnimatePresence>
-            {errorMessage && (
+            {errorMessage && !isLockedOut && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -280,13 +437,14 @@ const NextGenAiLoginPage = () => {
               <div className="relative">
                 <input
                   type="email"
+                  disabled={isLockedOut}
                   value={adminEmail}
                   onChange={(e) => {
                     setAdminEmail(e.target.value);
                     if (formErrors.email) setFormErrors(p => ({ ...p, email: '' }));
                   }}
-                  placeholder="admin@domain.com"
-                  className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-sm text-white placeholder-gray-400 font-mono outline-none transition-all ${
+                  placeholder="NEXTAI.ADMIN1910@DSU.EDU.COM"
+                  className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-sm text-white placeholder-gray-400 font-mono outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     formErrors.email ? 'border-rose-500 bg-rose-500/10' : 'border-white/10 focus:border-[#ff0055]'
                   }`}
                 />
@@ -305,21 +463,23 @@ const NextGenAiLoginPage = () => {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  disabled={isLockedOut}
                   value={adminPassword}
                   onChange={(e) => {
                     setAdminPassword(e.target.value);
                     if (formErrors.password) setFormErrors(p => ({ ...p, password: '' }));
                   }}
                   placeholder="••••••••••••"
-                  className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-sm text-white placeholder-gray-400 font-mono outline-none transition-all pr-11 ${
+                  className={`w-full px-4 py-3 rounded-xl bg-white/5 border text-sm text-white placeholder-gray-400 font-mono outline-none transition-all pr-11 disabled:opacity-50 disabled:cursor-not-allowed ${
                     formErrors.password ? 'border-rose-500 bg-rose-500/10' : 'border-white/10 focus:border-[#ff0055]'
                   }`}
                 />
                 <button
                   type="button"
+                  disabled={isLockedOut}
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors disabled:opacity-40"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -327,26 +487,36 @@ const NextGenAiLoginPage = () => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-gray-400 flex items-center justify-between">
-                <span>Security PIN / Token (Optional)</span>
-                <span className="text-[10px] text-[#00f0ff] font-mono">2FA Hardware Sync</span>
+              <label className="text-[11px] font-mono uppercase tracking-wider text-gray-300 flex items-center justify-between">
+                <span>Administrative Secret Code / PIN</span>
+                <span className="text-[10px] text-[#00f0ff] font-mono">2FA Hardware Sync (63072W)</span>
               </label>
               <input
                 type="text"
+                disabled={isLockedOut}
                 value={securityPin}
                 onChange={(e) => setSecurityPin(e.target.value)}
-                placeholder="Enter 6-digit Secret PIN"
-                maxLength={7}
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-gray-600 font-mono outline-none focus:border-[#00f0ff] transition-all"
+                placeholder="Enter Secret Code (e.g. 63072W)"
+                maxLength={12}
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-gray-500 font-mono outline-none focus:border-[#00f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             <button
               type="submit"
-              disabled={isAuthenticating || authSuccess}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#ff0055] via-[#a200ff] to-[#00f0ff] text-white font-extrabold text-xs uppercase tracking-wider hover:opacity-90 active:scale-98 transition-all shadow-lg shadow-[#ff0055]/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+              disabled={isAuthenticating || authSuccess || isLockedOut}
+              className={`w-full py-3.5 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 mt-2 ${
+                isLockedOut
+                  ? 'bg-rose-950/70 text-rose-300 border border-rose-500/50 cursor-not-allowed shadow-none'
+                  : 'bg-gradient-to-r from-[#ff0055] via-[#a200ff] to-[#00f0ff] text-white hover:opacity-90 active:scale-98 shadow-[#ff0055]/30 cursor-pointer disabled:opacity-50'
+              }`}
             >
-              {isAuthenticating ? (
+              {isLockedOut ? (
+                <>
+                  <Clock className="w-4 h-4 text-rose-400 animate-pulse" />
+                  <span>GATEWAY FROZEN · {formatTimer(remainingTimeSec)} REMAINING</span>
+                </>
+              ) : isAuthenticating ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin text-white" />
                   <span>Verifying Zero-Trust Credentials...</span>

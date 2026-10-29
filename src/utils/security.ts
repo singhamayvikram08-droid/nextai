@@ -177,7 +177,7 @@ class SlidingWindowRateLimiter {
   }
 }
 
-export const authRateLimiter = new SlidingWindowRateLimiter(60000, 5); // 5 login attempts per minute
+export const authRateLimiter = new SlidingWindowRateLimiter(600000, 5); // 5 login attempts per 10 minutes (600,000 ms)
 export const apiRateLimiter = new SlidingWindowRateLimiter(60000, 60);  // 60 requests per minute
 export const formRateLimiter = new SlidingWindowRateLimiter(30000, 3); // 3 submissions per 30 seconds
 
