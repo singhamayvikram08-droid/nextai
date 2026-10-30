@@ -128,7 +128,7 @@ const Pricing = () => {
   
   // Card Form State
   const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
-  const [cardHolder, setCardHolder] = useState(() => user?.name || 'Valued Customer');
+  const [cardHolder, setCardHolder] = useState(() => user?.name || 'Amay Vikram Singh');
   const [cardExpiry, setCardExpiry] = useState('12/28');
   const [cardCvc, setCardCvc] = useState('888');
 
@@ -250,8 +250,8 @@ const Pricing = () => {
         const isEnterprise = activePlan.id === 'enterprise';
         const nextTier = activePlan.id === 'hobby' ? 'free' : (activePlan.id as 'pro' | 'enterprise');
         setStoredAuth({
-          name: user?.name || cardHolder.trim() || 'Valued Customer',
-          email: user?.email || 'customer@nexgen.io',
+          name: user?.name || cardHolder.trim() || 'Amay Vikram Singh',
+          email: user?.email || 'developer@nexgen.io',
           role: isProPlan ? 'Pro Subscriber' : (isEnterprise ? 'Enterprise Subscriber' : 'Member'),
           tier: nextTier,
           isPro: isProPlan || isEnterprise,
@@ -717,6 +717,9 @@ const Pricing = () => {
                               type="text"
                               value={cardHolder}
                               onChange={(e) => setCardHolder(e.target.value)}
+                              data-private="true"
+                              data-rr-block="true"
+                              autoComplete="off"
                               className="w-full mt-1 bg-white/[0.04] border border-white/10 focus:border-[#00f0ff] rounded-xl px-4 py-3 text-xs text-white outline-none font-medium"
                               placeholder="Full Name"
                             />
@@ -730,6 +733,9 @@ const Pricing = () => {
                                 type="text"
                                 value={cardNumber}
                                 onChange={(e) => setCardNumber(e.target.value)}
+                                data-private="true"
+                                data-rr-block="true"
+                                autoComplete="off"
                                 className="w-full bg-white/[0.04] border border-white/10 focus:border-[#00f0ff] rounded-xl pl-10 pr-4 py-3 text-xs text-white outline-none font-mono"
                                 placeholder="4242 4242 4242 4242"
                               />
@@ -746,6 +752,9 @@ const Pricing = () => {
                                 type="text"
                                 value={cardExpiry}
                                 onChange={(e) => setCardExpiry(e.target.value)}
+                                data-private="true"
+                                data-rr-block="true"
+                                autoComplete="off"
                                 className="w-full mt-1 bg-white/[0.04] border border-white/10 focus:border-[#00f0ff] rounded-xl px-4 py-3 text-xs text-white outline-none font-mono"
                                 placeholder="MM/YY"
                               />
@@ -756,6 +765,9 @@ const Pricing = () => {
                                 type="text"
                                 value={cardCvc}
                                 onChange={(e) => setCardCvc(e.target.value)}
+                                data-private="true"
+                                data-rr-block="true"
+                                autoComplete="off"
                                 className="w-full mt-1 bg-white/[0.04] border border-white/10 focus:border-[#00f0ff] rounded-xl px-4 py-3 text-xs text-white outline-none font-mono"
                                 placeholder="CVC"
                               />
@@ -804,6 +816,34 @@ const Pricing = () => {
                           </button>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* RBI Auto-Debit & Recurring Terms Transparency Box */}
+                  {activePlan.id !== 'hobby' && (
+                    <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-[#00f0ff]/30 text-xs space-y-2 my-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-white flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 text-[#00f0ff]" />
+                          <span>E-Mandate &amp; Renewal Terms (RBI Rule)</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-emerald-400 font-bold">Pre-Debit Notice Active</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-300 font-mono">
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">Trial Period:</span>
+                          <span className="text-white font-bold">14 Days ($0.00 Due Today)</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">Recurring Auto-Debit:</span>
+                          <span className="text-white font-bold">{billingCycle === 'monthly' ? '$49.00 / mo' : '$39.00 / mo (annual)'}</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 leading-relaxed">
+                        • <strong>24-Hour Pre-Debit Notice:</strong> Per RBI guidelines, a pre-debit advisory will be delivered via email at least 24 hours prior to every charge with an immediate opt-out link.
+                        <br />
+                        • <strong>Cancellation Parity:</strong> Cancel anytime in your Dashboard in 1-click with immediate effect.
+                      </p>
                     </div>
                   )}
 

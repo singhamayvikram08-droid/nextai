@@ -14,8 +14,8 @@ export interface CookiePreferences {
 
 const DEFAULT_PREFERENCES: CookiePreferences = {
   essential: true,
-  telemetry: true,
-  spatialCache: true,
+  telemetry: false,
+  spatialCache: false,
   personalization: false,
   timestamp: new Date().toISOString(),
 };
@@ -117,10 +117,10 @@ const CookieConsentBanner = () => {
                   <Cookie className="w-4 h-4 text-[#00f0ff]" />
                 </div>
                 <div className="min-w-0 text-xs text-gray-300 leading-snug">
-                  <span className="font-bold text-white">Cookie &amp; Telemetry Notice:</span>{' '}
-                  NexGen uses essential cookies &amp; WebGL tokens for 3D spatial compute.{' '}
+                  <span className="font-bold text-white">DPDP Statutory Notice:</span>{' '}
+                  Non-essential telemetry is off by default under India&apos;s DPDP Act 2023. We only process strictly necessary tokens unless you choose to enable telemetry.{' '}
                   <Link to="/privacy" className="text-[#00f0ff] hover:underline whitespace-nowrap">
-                    Privacy Policy
+                    Privacy Rights &amp; GRO
                   </Link>
                 </div>
               </div>
