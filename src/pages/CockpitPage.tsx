@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { usePageSEO } from '../utils/usePageSEO';
 import { useAuth } from '../utils/auth';
 import {
   Hexagon, Shield, Activity, RefreshCw, X,
   Zap, RotateCcw, Cpu, FileText, Layers, Share2,
-  CheckCircle2, Sparkles, Check
+  CheckCircle2, Sparkles, Check, LogOut
 } from 'lucide-react';
 
 /* ═════════════════════════════════════════════════════════════
@@ -185,9 +185,21 @@ const SATELLITE_NODES: SatelliteNodeData[] = [
 ];
 
 const CockpitPage = () => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const isPro = Boolean(user?.isPro || user?.tier === 'pro');
   const isEnterprise = Boolean(user?.tier === 'enterprise');
+
+  // Step back one by one in history when clicking logo
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    sound.click();
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/dashboard');
+    }
+  };
 
   usePageSEO({
     title: `3D Spatial Cockpit — NexGen AI ${isPro ? 'PRO ' : ''}WebGL Neural Matrix`,
@@ -1534,12 +1546,12 @@ const CockpitPage = () => {
       {/* ── 1. UNIFIED COCKPIT HEADER BAR (Matches Dashboard Page UI/UX) ── */}
       <header className="relative z-30 h-16 sm:h-20 border-b border-white/10 bg-[#06060c]/90 backdrop-blur-2xl px-4 lg:px-8 flex items-center justify-between shrink-0 shadow-lg shadow-black/40">
         <div className="flex items-center gap-4">
-          {/* Logo matching DashboardPage */}
-          <Link
-            to="/"
-            onClick={() => sound.click()}
-            className="flex items-center gap-2.5 group cursor-pointer shrink-0"
-            title="Return to NexGen AI Home"
+          {/* Logo matching DashboardPage - Steps back one by one */}
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center gap-2.5 group cursor-pointer shrink-0 text-left bg-transparent border-none p-0 focus:outline-none"
+            title="Step Back / Return to Previous Page"
+            aria-label="Step Back / Return to Previous Page"
           >
             <div className="relative">
               <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
@@ -1563,7 +1575,7 @@ const CockpitPage = () => {
                 Cloud-Native 3D Spatial Computing Engine
               </span>
             </div>
-          </Link>
+          </button>
         </div>
 
         {/* Center HUD Status Title Badge */}
@@ -1634,12 +1646,27 @@ const CockpitPage = () => {
               ) : (
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">FREE MEMBER</span>
-                  <Link to="/#pricing" className="text-[9px] font-mono font-bold text-[#00f0ff] hover:underline">
+                  <Link to="/dashboard?tab=pricing" className="text-[9px] font-mono font-bold text-[#00f0ff] hover:underline">
                     UPGRADE
                   </Link>
                 </div>
               )}
             </div>
+
+            {/* Prominent High-Visibility Logout Button */}
+            <button
+              onClick={() => {
+                sound.click();
+                logout();
+                navigate('/login');
+              }}
+              title="Sign Out of NexGen AI"
+              aria-label="Sign Out"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/60 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden md:inline">Logout</span>
+            </button>
           </div>
         </div>
       </header>

@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Hexagon, Cpu, Zap, Shield, Globe, 
   Terminal, ArrowUpRight, LogOut, Sparkles, RefreshCw, Layers,
   Server, Trash2, CheckCircle2, FileText,
-  Activity, Gauge, Send, Copy, Download, Check, ArrowLeft
+  Activity, Gauge, Send, Copy, Download, Check, ArrowLeft,
+  CreditCard, Lock, Star, X
 } from 'lucide-react';
 import Magnetic from '../components/Magnetic';
 import { analytics } from '../utils/analytics';
-import { useAuth, getStoredAuth } from '../utils/auth';
+import { useAuth, getStoredAuth, setStoredAuth } from '../utils/auth';
 import { logAdminAction } from '../utils/security';
 import { usePageSEO } from '../utils/usePageSEO';
 import { triggerClusterRebalance } from '../utils/loadBalancer';
@@ -35,6 +36,9 @@ interface FleetNodeItem {
   load: string;
   memory: string;
 }
+
+type DashboardTab = 'overview' | 'nodes' | 'console' | 'spec' | 'ai-terminal' | 'pricing';
+type PaymentMethod = 'card' | 'upi' | 'apple_pay';
 
 const mockProjects: Project[] = [
   { name: 'NexGen AI PRO 3D Spatial Cockpit', category: 'WebGL Neural Matrix & HUD', status: 'online', port: 5173, path: '/cockpit', uptime: '100%', load: '4%' },
@@ -64,10 +68,31 @@ const DashboardPage = () => {
   });
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuth();
   const isPro = user?.tier === 'pro' || user?.isPro;
   const isEnterprise = user?.tier === 'enterprise';
-  const [activeTab, setActiveTab] = useState<'overview' | 'nodes' | 'console' | 'spec' | 'ai-terminal'>('overview');
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['overview', 'nodes', 'console', 'spec', 'ai-terminal', 'pricing'].includes(tabParam)) {
+      return tabParam as DashboardTab;
+    }
+    return 'overview';
+  });
+
+  // Keep activeTab in sync with query param
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['overview', 'nodes', 'console', 'spec', 'ai-terminal', 'pricing'].includes(tabParam)) {
+      setActiveTab(tabParam as DashboardTab);
+    }
+  }, [searchParams]);
+
+  // Pricing & Subscription state in Dashboard
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('card');
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [fleetNodes, setFleetNodes] = useState<FleetNodeItem[]>(FLEET_NODES_LIST);
   const [fleetFilter, setFleetFilter] = useState<'All' | 'Operational' | 'Degraded' | 'Standby'>('All');
   const [rebalancingFleet, setRebalancingFleet] = useState(false);
@@ -239,9 +264,50 @@ const DashboardPage = () => {
     navigate('/login');
   };
 
-  const handleTabChange = (tab: 'overview' | 'nodes' | 'console' | 'spec' | 'ai-terminal') => {
+  // When clicking NextGen AI logo or Back button: Cut one by back (step back 1 in browser history)
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleTabChange = (tab: 'overview' | 'nodes' | 'console' | 'spec' | 'ai-terminal' | 'pricing') => {
     setActiveTab(tab);
+    setSearchParams(tab === 'overview' ? {} : { tab });
     analytics.trackEvent('dashboard_tab_switch', { tab });
+  };
+
+  // Direct In-Dashboard Upgrade to PRO
+  const handleUpgradeToPro = async (tier: 'pro' | 'enterprise' = 'pro') => {
+    setIsUpgrading(true);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    setStoredAuth({
+      tier: tier,
+      isPro: true,
+      role: tier === 'pro' ? 'Pro Subscriber' : 'Enterprise Tier',
+      subscriptionStatus: 'active',
+      subscribedAt: new Date().toISOString()
+    });
+    setIsUpgrading(false);
+    setShowCheckoutModal(false);
+    setNodeFeedback(`🎉 Subscription Activated! Upgraded to ${tier === 'pro' ? 'PRO Spatial Plan' : 'Enterprise Tier'}. 14,029 edge nodes & high-speed WebGPU compute unlocked!`);
+    setTimeout(() => {
+      setNodeFeedback(null);
+    }, 6000);
+  };
+
+  const handleDowngradeForTesting = () => {
+    setStoredAuth({
+      tier: 'free',
+      isPro: false,
+      role: 'Member',
+      subscriptionStatus: 'none'
+    });
+    setNodeFeedback('Account tier switched to Free Member (Testing Mode).');
+    setTimeout(() => setNodeFeedback(null), 3500);
   };
 
   // Fleet Actions
@@ -446,11 +512,11 @@ const DashboardPage = () => {
       {/* ── TOP HEADER (Brand & User Profile) ── */}
       <header className="h-16 sm:h-20 border-b border-white/5 bg-[#050508]/90 backdrop-blur-xl sticky top-0 z-50 px-4 sm:px-6 lg:px-12 flex items-center justify-between w-full max-w-full">
         <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
-          <Link
-            to="/"
-            className="flex items-center gap-2.5 group cursor-pointer shrink-0"
-            title="Return to NexGen AI Homepage"
-            aria-label="Return to NexGen AI Homepage"
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center gap-2.5 group cursor-pointer shrink-0 text-left bg-transparent border-none p-0 focus:outline-none"
+            title="Step Back / Return to Previous Page"
+            aria-label="Step Back / Return to Previous Page"
           >
             <div className="relative">
               <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
@@ -465,18 +531,19 @@ const DashboardPage = () => {
             <span className="ml-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-gray-400 uppercase tracking-widest hidden md:inline-block">
               Core v2.4
             </span>
-          </Link>
+          </button>
 
-          {/* Explicit Back to Homepage button */}
-          <Link
-            to="/"
+          {/* Explicit Back button - Steps back one by one */}
+          <button
+            onClick={handleLogoClick}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00f0ff]/40 text-gray-300 hover:text-white font-medium text-xs transition-all shrink-0 cursor-pointer shadow-sm active:scale-95"
-            title="Return to NexGen AI Homepage"
+            title="Step back to previous page"
+            aria-label="Step back to previous page"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-[#00f0ff]" />
-            <span className="hidden sm:inline">Back to Home</span>
-            <span className="sm:hidden">Home</span>
-          </Link>
+            <span className="hidden sm:inline">Back</span>
+            <span className="sm:hidden">Back</span>
+          </button>
         </div>
 
         {/* User profile & actions */}
@@ -497,10 +564,14 @@ const DashboardPage = () => {
             <div className="hidden lg:block text-left">
               <div className="text-xs font-bold text-white leading-tight">{user?.name || 'Authorized Member'}</div>
               {isPro ? (
-                <div className="text-[10px] text-[#00f0ff] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('pricing')}
+                  className="text-[10px] text-[#00f0ff] font-mono font-bold uppercase tracking-wider flex items-center gap-1 hover:underline cursor-pointer"
+                >
                   <Sparkles className="w-3 h-3 text-[#00f0ff]" />
                   <span>PRO SUBSCRIBER</span>
-                </div>
+                </button>
               ) : isEnterprise ? (
                 <div className="text-[10px] text-[#a200ff] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
                   <Shield className="w-3 h-3 text-[#a200ff]" />
@@ -509,18 +580,26 @@ const DashboardPage = () => {
               ) : (
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">FREE MEMBER</span>
-                  <Link to="/#pricing" className="text-[9px] font-mono font-bold text-[#00f0ff] hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('pricing')}
+                    className="text-[9px] font-mono font-bold text-[#00f0ff] hover:underline cursor-pointer"
+                  >
                     UPGRADE
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>
+
+            {/* Prominent High-Visibility Logout Button */}
             <button
               onClick={handleLogout}
-              title="Sign Out"
-              className="p-2 rounded-xl hover:bg-white/10 text-gray-400 hover:text-[#ff0055] transition-colors cursor-pointer shrink-0"
+              title="Sign Out of NexGen AI"
+              aria-label="Sign Out"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/60 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
@@ -535,23 +614,28 @@ const DashboardPage = () => {
             { id: 'console', label: 'Terminal CLI', icon: Terminal, badge: 'v2.4' },
             { id: 'ai-terminal', label: 'AI Reasoning Terminal', icon: Cpu, badge: 'NEURAL' },
             { id: 'spec', label: 'Spec Docs', icon: FileText, badge: 'NG-412' },
+            { id: 'pricing', label: isPro ? 'PRO Subscription' : 'Upgrade to PRO', icon: Sparkles, badge: isPro ? 'ACTIVE' : 'BUY PRO' },
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => handleTabChange(tab.id as 'overview' | 'nodes' | 'console' | 'spec' | 'ai-terminal')}
+              onClick={() => handleTabChange(tab.id as DashboardTab)}
               className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shrink-0 select-none ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold shadow-[0_0_20px_rgba(0,240,255,0.3)] scale-[1.02]'
+                  : tab.id === 'pricing' && !isPro
+                  ? 'text-[#00f0ff] hover:text-white bg-[#00f0ff]/10 hover:bg-[#00f0ff]/20 border border-[#00f0ff]/30 shadow-[0_0_15px_rgba(0,240,255,0.15)]'
                   : 'text-gray-400 hover:text-white hover:bg-white/5 border border-white/5 hover:border-white/15'
               }`}
             >
-              <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-black' : 'text-[#00f0ff]'}`} />
+              <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-black' : tab.id === 'pricing' ? 'text-[#00f0ff]' : 'text-[#00f0ff]'}`} />
               <span>{tab.label}</span>
               {tab.badge && (
                 <span
                   className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
                     activeTab === tab.id
                       ? 'bg-black/20 text-black'
+                      : tab.id === 'pricing' && !isPro
+                      ? 'bg-[#00f0ff] text-black font-black'
                       : 'bg-white/10 text-gray-300'
                   }`}
                 >
@@ -642,9 +726,18 @@ const DashboardPage = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 font-mono text-xs text-emerald-400 font-bold shrink-0">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>PRO ACTIVE</span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-2 font-mono text-xs text-emerald-400 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>PRO ACTIVE</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('pricing')}
+                    className="px-3 py-1.5 rounded-xl bg-[#00f0ff]/10 hover:bg-[#00f0ff]/20 border border-[#00f0ff]/30 text-xs font-mono text-[#00f0ff] hover:text-white transition-all cursor-pointer"
+                  >
+                    Manage Plan
+                  </button>
                 </div>
               </div>
             ) : isEnterprise ? (
@@ -688,13 +781,14 @@ const DashboardPage = () => {
                     </p>
                   </div>
                 </div>
-                <Link
-                  to="/#pricing"
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold text-xs uppercase tracking-wider hover:opacity-90 transition-opacity shrink-0 flex items-center gap-1.5 shadow-lg shadow-[#00f0ff]/20"
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('pricing')}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all shrink-0 flex items-center gap-1.5 shadow-lg shadow-[#00f0ff]/20 cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5 fill-black" />
                   <span>Upgrade to Pro</span>
-                </Link>
+                </button>
               </div>
             )}
 
@@ -1522,19 +1616,466 @@ void main() {
           </motion.div>
         )}
 
+        {/* ══════════════════════════════════════════════════════════
+            TAB 6: IN-DASHBOARD SUBSCRIPTION & PRICING
+            ══════════════════════════════════════════════════════════ */}
+        {activeTab === 'pricing' && (
+          <motion.div
+            key="pricing"
+            initial={false}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-10 w-full max-w-full"
+          >
+            {/* Header & Status */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/10">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#a200ff]/15 border border-[#a200ff]/30 text-[#00f0ff] text-xs font-bold uppercase tracking-widest mb-3">
+                  <Sparkles className="w-3.5 h-3.5 text-[#00f0ff]" />
+                  <span>NexGen PRO Infrastructure Subscription</span>
+                </div>
+                <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">
+                  Subscription &amp; Compute Tiers
+                </h1>
+                <p className="text-gray-300 text-sm mt-2 max-w-2xl">
+                  Upgrade directly inside your dashboard. Instant cryptographic provisioning unlocks 14,029 edge nodes, high-speed neural reasoning, and 3D Cockpit telemetry without leaving the platform.
+                </p>
+              </div>
+
+              {/* Current Account Status Pill */}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-right">
+                  <div className="text-[10px] font-mono text-gray-400 uppercase tracking-wider">Active Account Status</div>
+                  <div className="text-base font-black flex items-center justify-end gap-1.5 mt-0.5">
+                    {isPro ? (
+                      <span className="text-[#00f0ff] flex items-center gap-1 font-mono">
+                        <Sparkles className="w-4 h-4" /> PRO SUBSCRIBER
+                      </span>
+                    ) : isEnterprise ? (
+                      <span className="text-[#a200ff] flex items-center gap-1 font-mono">
+                        <Shield className="w-4 h-4" /> ENTERPRISE TIER
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 font-mono">FREE MEMBER</span>
+                    )}
+                  </div>
+                  {isPro && (
+                    <div className="text-[10px] font-mono text-emerald-400 mt-1 flex items-center justify-end gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>14,029 Nodes Synchronized</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Billing Interval Toggle (Monthly vs Annual) */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-sm">
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                className={`font-semibold cursor-pointer px-3 py-1.5 rounded-xl transition-all ${
+                  billingCycle === 'monthly' ? 'text-white bg-white/10 border border-white/20' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Monthly Billing
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBillingCycle(prev => prev === 'monthly' ? 'yearly' : 'monthly')}
+                className="relative w-14 h-7 bg-white/10 rounded-full p-1 transition-colors border border-white/20 focus:outline-none cursor-pointer"
+                aria-label="Toggle annual or monthly billing"
+              >
+                <motion.div
+                  className="w-5 h-5 rounded-full bg-gradient-to-r from-[#00f0ff] to-[#a200ff]"
+                  animate={{ x: billingCycle === 'yearly' ? 26 : 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBillingCycle('yearly')}
+                className={`font-semibold cursor-pointer px-3 py-1.5 rounded-xl transition-all flex items-center gap-2 ${
+                  billingCycle === 'yearly' ? 'text-white bg-white/10 border border-white/20' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <span>Annual Billing</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black font-mono bg-gradient-to-r from-[#00f0ff]/20 to-[#a200ff]/20 border border-[#00f0ff]/40 text-[#00f0ff]">
+                  SAVE 20%
+                </span>
+              </button>
+            </div>
+
+            {/* 3 Pricing Cards Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Card 1: Hobby Core (Free) */}
+              <div className={`rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-all bg-[#080812] border ${
+                !isPro && !isEnterprise ? 'border-[#00f0ff]/40 shadow-[0_0_25px_rgba(0,240,255,0.08)]' : 'border-white/10'
+              }`}>
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-gray-400">Starter Sandbox</span>
+                    {!isPro && !isEnterprise && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/10 text-gray-300 border border-white/20">
+                        CURRENT TIER
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-2xl font-black text-white">Hobby Core</h3>
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="text-4xl font-black text-white font-mono">$0</span>
+                    <span className="text-xs text-gray-400 font-mono">/ forever</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3 leading-relaxed">
+                    Designed for prototype experiments, students, and community sandbox applications.
+                  </p>
+
+                  <div className="mt-6 pt-6 border-t border-white/10 space-y-3 font-mono text-xs text-gray-300">
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-gray-500 shrink-0" />
+                      <span>1,000 API requests / day</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-gray-500 shrink-0" />
+                      <span>Standard 3D WebGL Matrix</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-gray-500 shrink-0" />
+                      <span>6 Active Ecosystem Services</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-gray-500 shrink-0" />
+                      <span>Community Discord Support</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-gray-600">
+                      <span className="w-4 h-4 shrink-0 text-center select-none">—</span>
+                      <span>Shared Edge Compute Only</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-white/5">
+                  {!isPro && !isEnterprise ? (
+                    <div className="py-3 text-center text-xs font-mono font-bold text-gray-500 bg-white/5 rounded-xl border border-white/10">
+                      Current Active Tier
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleDowngradeForTesting}
+                      className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer"
+                    >
+                      Downgrade to Free (Testing)
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 2: Pro Spatial (Most Popular / Main Option) */}
+              <div className="rounded-3xl p-6 sm:p-8 flex flex-col justify-between relative bg-gradient-to-b from-[#0f0c1f] via-[#090814] to-[#05050a] border-2 border-[#00f0ff] shadow-[0_0_40px_rgba(0,240,255,0.2),0_0_80px_rgba(162,0,255,0.15)]">
+                {/* Popular Badge */}
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#00f0ff] via-[#a200ff] to-[#ff0055] text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#00f0ff]/30 flex items-center gap-1.5 whitespace-nowrap">
+                  <Star className="w-3 h-3 fill-white" />
+                  <span>★ RECOMMENDED FOR PRODUCTION</span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#00f0ff]">Production Spatial Engine</span>
+                    {isPro && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/40 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
+                    <span>Pro Spatial</span>
+                    <Sparkles className="w-5 h-5 text-[#00f0ff]" />
+                  </h3>
+                  <div className="mt-4 flex items-baseline gap-2">
+                    <span className="text-4xl sm:text-5xl font-black text-white font-mono">
+                      {billingCycle === 'yearly' ? '$39' : '$49'}
+                    </span>
+                    <span className="text-xs text-gray-400 font-mono">/ month</span>
+                    {billingCycle === 'yearly' && (
+                      <span className="text-[10px] text-[#00f0ff] font-mono font-bold">(billed annually)</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-300 mt-3 leading-relaxed">
+                    Full autonomous spatial infrastructure with guaranteed WebGPU compute allocation and sub-millisecond edge latency.
+                  </p>
+
+                  <div className="mt-6 pt-6 border-t border-white/10 space-y-3.5 font-mono text-xs text-gray-200">
+                    <div className="flex items-center gap-2.5 text-white font-bold">
+                      <Check className="w-4 h-4 text-[#00f0ff] stroke-[3px] shrink-0" />
+                      <span>14,029 Distributed Edge Compute Nodes</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-white font-bold">
+                      <Check className="w-4 h-4 text-[#00f0ff] stroke-[3px] shrink-0" />
+                      <span>Sub-millisecond WebGPU cluster routing</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-white font-bold">
+                      <Check className="w-4 h-4 text-[#00f0ff] stroke-[3px] shrink-0" />
+                      <span>Unlimited Neural Reasoning Tokens</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#00f0ff] shrink-0" />
+                      <span>Full 3D Spatial Cockpit &amp; HUD telemetry</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#00f0ff] shrink-0" />
+                      <span>Zero cold-start instant container warmup</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#00f0ff] shrink-0" />
+                      <span>Private Projects &amp; Unlimited Workspaces</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#00f0ff] shrink-0" />
+                      <span>Priority 24/7 Developer Concierge Support</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-white/10">
+                  {isPro ? (
+                    <div className="space-y-3">
+                      <div className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-[#00f0ff]/20 border border-emerald-500/40 text-emerald-300 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>SUBSCRIPTION ACTIVE &amp; PROVISIONED</span>
+                      </div>
+                      <p className="text-[11px] font-mono text-gray-400 text-center">
+                        Renews automatically on {new Date(Date.now() + 30 * 86400000).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowCheckoutModal(true)}
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00f0ff] via-[#a200ff] to-[#ff0055] hover:opacity-95 text-white font-black text-xs sm:text-sm uppercase tracking-wider transition-all shadow-[0_0_30px_rgba(0,240,255,0.4)] flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                    >
+                      <Zap className="w-4 h-4 fill-white" />
+                      <span>Upgrade to PRO Now — Instant Activation</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 3: Enterprise Matrix (Custom) */}
+              <div className={`rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-all bg-[#080812] border ${
+                isEnterprise ? 'border-[#a200ff]/60 shadow-[0_0_25px_rgba(162,0,255,0.15)]' : 'border-white/10'
+              }`}>
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-purple-400">Dedicated Fleet</span>
+                    {isEnterprise && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#a200ff]/20 text-[#a200ff] border border-[#a200ff]/40">
+                        ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-2xl font-black text-white flex items-center gap-2">
+                    <span>Enterprise Matrix</span>
+                    <Shield className="w-5 h-5 text-[#a200ff]" />
+                  </h3>
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="text-4xl font-black text-white font-mono">Custom</span>
+                    <span className="text-xs text-gray-400 font-mono">/ bespoke SLA</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3 leading-relaxed">
+                    Sovereign cloud infrastructure, custom bare-metal nodes, dedicated VPCs, and 99.999% SLA.
+                  </p>
+
+                  <div className="mt-6 pt-6 border-t border-white/10 space-y-3 font-mono text-xs text-gray-300">
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#a200ff] shrink-0" />
+                      <span>Dedicated bare-metal GPU clusters</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#a200ff] shrink-0" />
+                      <span>99.999% SLA Uptime Guarantee</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#a200ff] shrink-0" />
+                      <span>Sovereign VPC / On-Prem Deployment</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#a200ff] shrink-0" />
+                      <span>Enterprise SSO (SAML, Okta, Azure)</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Check className="w-4 h-4 text-[#a200ff] shrink-0" />
+                      <span>Dedicated Principal Solutions Architect</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText('enterprise@nexgen.io');
+                      setNodeFeedback('Enterprise solutions inquiry copied: enterprise@nexgen.io');
+                      setTimeout(() => setNodeFeedback(null), 3000);
+                    }}
+                    className="w-full py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <span>Request Enterprise Cluster</span>
+                    <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* In-Dashboard Subscription FAQs */}
+            <div className="rounded-3xl bg-[#06060c] border border-white/10 p-6 sm:p-8 space-y-4">
+              <h3 className="text-lg font-black text-white flex items-center gap-2">
+                <Lock className="w-4 h-4 text-[#00f0ff]" />
+                <span>Enterprise Security &amp; Instant Provisioning FAQ</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
+                  <h4 className="font-bold text-white">Do nodes activate immediately?</h4>
+                  <p className="text-gray-400">Yes. The moment payment is confirmed, the cluster orchestrator provisions 14,029 edge nodes and high-speed WebGPU pipeline to your session.</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1">
+                  <h4 className="font-bold text-white">Can I cancel anytime?</h4>
+                  <p className="text-gray-400">Yes, you can downgrade or pause your subscription directly from your dashboard anytime without penalty.</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
       </main>
+
+      {/* ── IN-DASHBOARD INSTANT UPGRADE MODAL ── */}
+      <AnimatePresence>
+        {showCheckoutModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-lg rounded-3xl bg-[#080814] border border-[#00f0ff]/40 shadow-[0_0_50px_rgba(0,240,255,0.25)] overflow-hidden flex flex-col"
+            >
+              {/* Modal Header */}
+              <div className="p-5 sm:p-6 bg-gradient-to-r from-[#0d0921] to-[#040409] border-b border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#00f0ff] to-[#a200ff] flex items-center justify-center text-black font-black shadow-lg shadow-[#00f0ff]/30">
+                    <Sparkles className="w-5 h-5 fill-black" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">Upgrade to NexGen AI PRO</h3>
+                    <p className="text-xs font-mono text-emerald-400">Instant In-Dashboard Activation</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCheckoutModal(false)}
+                  className="p-2 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 sm:p-6 space-y-5">
+                {/* Plan Summary */}
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-mono text-gray-400 uppercase">Selected Plan</div>
+                    <div className="text-base font-black text-white">PRO Spatial Infrastructure</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xl font-mono font-black text-[#00f0ff]">
+                      {billingCycle === 'yearly' ? '$39/mo' : '$49/mo'}
+                    </div>
+                    <div className="text-[10px] font-mono text-gray-400">
+                      {billingCycle === 'yearly' ? 'Billed $468 annually' : 'Billed monthly'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Method Selector */}
+                <div className="space-y-2">
+                  <label className="text-xs font-mono uppercase text-gray-400 tracking-wider">Select Payment Method</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'card', label: 'Credit Card', icon: CreditCard },
+                      { id: 'upi', label: 'UPI / NetBank', icon: Zap },
+                      { id: 'apple_pay', label: 'Apple / G-Pay', icon: Shield },
+                    ].map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setSelectedMethod(m.id as PaymentMethod)}
+                        className={`p-3 rounded-xl border text-xs font-mono font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                          selectedMethod === m.id
+                            ? 'bg-[#00f0ff]/15 border-[#00f0ff] text-white shadow-[0_0_15px_rgba(0,240,255,0.2)]'
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <m.icon className="w-4 h-4 text-[#00f0ff]" />
+                        <span>{m.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Simulated Payment Credentials */}
+                <div className="p-4 rounded-2xl bg-black/50 border border-white/10 space-y-2 font-mono text-xs">
+                  <div className="flex items-center justify-between text-gray-400">
+                    <span>Card / Account Number:</span>
+                    <strong className="text-gray-200">4242 •••• •••• 4242</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-gray-400">
+                    <span>Security Verification:</span>
+                    <strong className="text-emerald-400">Sandbox Ready (Auto-verified)</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-gray-400">
+                    <span>Provisioning:</span>
+                    <strong className="text-[#00f0ff]">14,029 Edge Nodes Instant Sync</strong>
+                  </div>
+                </div>
+
+                {/* Upgrade Button */}
+                <button
+                  type="button"
+                  onClick={() => handleUpgradeToPro('pro')}
+                  disabled={isUpgrading}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00f0ff] via-[#a200ff] to-[#ff0055] hover:opacity-95 text-white font-black text-sm uppercase tracking-wider transition-all shadow-[0_0_30px_rgba(0,240,255,0.4)] flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  {isUpgrading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                      <span>Provisioning PRO Neural Nodes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4 fill-white" />
+                      <span>Confirm &amp; Activate PRO Immediately</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ── DASHBOARD FOOTER (Safe Navigation & Telemetry State) ── */}
       <footer className="mt-auto border-t border-white/5 bg-[#040409] px-4 sm:px-6 lg:px-12 py-8 text-xs text-gray-400">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-300 hover:text-[#00f0ff] transition-colors"
+            <button
+              onClick={handleLogoClick}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-300 hover:text-[#00f0ff] transition-colors cursor-pointer bg-transparent border-none p-0"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#00f0ff]" />
-              <span>← Return to NexGen AI Main Website</span>
-            </Link>
+              <span>← Back to Previous Page</span>
+            </button>
             <span className="text-gray-600 hidden sm:inline">•</span>
             <span className="font-mono text-[11px] text-emerald-400 hidden sm:flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -1543,10 +2084,24 @@ void main() {
           </div>
 
           <div className="flex items-center gap-4 text-[11px] font-mono text-gray-400 flex-wrap justify-center">
+            <button
+              type="button"
+              onClick={() => handleTabChange('pricing')}
+              className="text-[#00f0ff] hover:underline font-bold cursor-pointer"
+            >
+              {isPro ? 'Pro Subscription' : 'Upgrade to PRO'}
+            </button>
+            <Link to="/cockpit" className="text-gray-300 hover:text-white transition-colors">3D Cockpit</Link>
             <Link to="/docs" className="hover:text-white transition-colors">API Docs</Link>
             <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-            <Link to="/cockpit" className="text-[#00f0ff] hover:underline font-bold">3D Cockpit</Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-rose-400 hover:text-rose-300 font-bold transition-colors cursor-pointer"
+            >
+              Sign Out
+            </button>
             <span className="text-gray-600">|</span>
             <span className="text-gray-400">© 2026 NexGen AI PRO Systems</span>
           </div>

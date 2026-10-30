@@ -149,14 +149,14 @@ const Navbar = () => {
                       <span>ENTERPRISE</span>
                     </Link>
                   ) : (
-                    <a
-                      href="/#pricing"
-                      title="Upgrade to Pro"
+                    <Link
+                      to="/dashboard?tab=pricing"
+                      title="Upgrade to Pro in Dashboard"
                       className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-[#00f0ff]/10 border border-white/10 hover:border-[#00f0ff]/40 text-gray-300 hover:text-[#00f0ff] font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all"
                     >
                       <span>Free</span>
                       <span className="text-[9px] text-[#00f0ff] font-black">↑ Upgrade</span>
-                    </a>
+                    </Link>
                   )}
 
                   <Link
