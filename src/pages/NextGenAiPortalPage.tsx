@@ -543,7 +543,7 @@ const NextGenAiPortalPage = () => {
       </AnimatePresence>
 
       {/* ── 3. MAIN PORTAL WORKSPACE ── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-8 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-8 pb-32 sm:pb-40 space-y-8 overflow-x-clip">
 
         {/* ══════════════════════════════════════════════════════════════
             TAB 1: MASTER OVERVIEW

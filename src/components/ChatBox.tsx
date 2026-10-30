@@ -339,12 +339,16 @@ const ChatBox = () => {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.95 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed bottom-24 right-6 z-[200] w-[400px] max-w-[calc(100vw-1.5rem)] flex flex-col rounded-2xl overflow-hidden shadow-2xl shadow-[#a200ff]/20 border border-white/10"
-            style={{ maxHeight: '78vh' }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed z-[200] w-[min(400px,calc(100vw-2rem))] flex flex-col rounded-2xl overflow-hidden shadow-2xl shadow-[#a200ff]/20 border border-white/10 bg-[#080812]"
+            style={{
+              bottom: 'max(5.75rem, calc(5.75rem + env(safe-area-inset-bottom, 0px)))',
+              right: 'max(1.25rem, calc(1.25rem + env(safe-area-inset-right, 0px)))',
+              maxHeight: 'min(580px, calc(100dvh - 7.5rem - env(safe-area-inset-bottom, 0px)))',
+            }}
           >
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-[#0e0e14] via-[#150b24] to-[#1a0a2e] border-b border-white/10">
@@ -374,7 +378,7 @@ const ChatBox = () => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto bg-[#08080f] px-4 py-4 flex flex-col gap-4" style={{ minHeight: '300px', maxHeight: '420px' }}>
+            <div className="flex-1 overflow-y-auto bg-[#08080f] px-4 py-4 flex flex-col gap-4" style={{ minHeight: '220px', maxHeight: '400px' }}>
               {messages.map(msg => (
                 <motion.div
                   key={msg.id}
@@ -502,9 +506,13 @@ const ChatBox = () => {
       <motion.button
         onClick={() => setIsOpen(prev => !prev)}
         aria-label={isOpen ? "Close AI chat assistant" : "Open AI chat assistant"}
-        whileHover={{ scale: 1.1 }}
+        whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.95 }}
-        className="fixed bottom-6 right-6 z-[200] w-14 h-14 rounded-full bg-gradient-to-br from-[#00f0ff] to-[#a200ff] flex items-center justify-center shadow-[0_0_25px_rgba(162,0,255,0.5)] hover:shadow-[0_0_40px_rgba(162,0,255,0.8)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[#00f0ff] cursor-pointer"
+        className="fixed z-[200] w-14 h-14 rounded-full bg-gradient-to-br from-[#00f0ff] to-[#a200ff] flex items-center justify-center shadow-[0_0_25px_rgba(162,0,255,0.5)] hover:shadow-[0_0_40px_rgba(162,0,255,0.8)] transition-all focus:outline-none focus:ring-2 focus:ring-[#00f0ff] cursor-pointer"
+        style={{
+          bottom: 'max(1.75rem, calc(1.75rem + env(safe-area-inset-bottom, 0px)))',
+          right: 'max(1.5rem, calc(1.5rem + env(safe-area-inset-right, 0px)))',
+        }}
       >
         <AnimatePresence mode="wait">
           {isOpen ? (
@@ -532,8 +540,8 @@ const ChatBox = () => {
         {/* Pulse ring */}
         {!isOpen && (
           <motion.div
-            className="absolute inset-0 rounded-full border-2 border-[#a200ff]"
-            animate={{ scale: [1, 1.5], opacity: [0.6, 0] }}
+            className="absolute inset-0 rounded-full border-2 border-[#a200ff] pointer-events-none"
+            animate={{ scale: [1, 1.35], opacity: [0.6, 0] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
         )}

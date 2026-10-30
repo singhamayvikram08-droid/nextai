@@ -5,7 +5,7 @@ import {
   Hexagon, Cpu, Zap, Shield, Globe, 
   Terminal, ArrowUpRight, LogOut, Sparkles, RefreshCw, Layers,
   Server, Trash2, CheckCircle2, FileText,
-  Activity, Gauge, Send, Copy, Download, Check
+  Activity, Gauge, Send, Copy, Download, Check, ArrowLeft
 } from 'lucide-react';
 import Magnetic from '../components/Magnetic';
 import { analytics } from '../utils/analytics';
@@ -441,16 +441,16 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#030305] text-white flex flex-col font-sans selection:bg-[#00f0ff] selection:text-black w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-[#030305] text-white flex flex-col font-sans selection:bg-[#00f0ff] selection:text-black w-full max-w-full overflow-x-clip">
       
       {/* ── TOP HEADER (Brand & User Profile) ── */}
-      <header className="h-16 sm:h-20 border-b border-white/5 bg-[#050508]/90 backdrop-blur-xl sticky top-0 z-50 px-4 sm:px-6 lg:px-12 flex items-center justify-between w-full max-w-full overflow-hidden">
-        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+      <header className="h-16 sm:h-20 border-b border-white/5 bg-[#050508]/90 backdrop-blur-xl sticky top-0 z-50 px-4 sm:px-6 lg:px-12 flex items-center justify-between w-full max-w-full">
+        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
           <Link
-            to="/login"
-            state={{ from: '/', fromDashboard: true }}
+            to="/"
             className="flex items-center gap-2.5 group cursor-pointer shrink-0"
-            title="NexGen AI PRO Core Portal"
+            title="Return to NexGen AI Homepage"
+            aria-label="Return to NexGen AI Homepage"
           >
             <div className="relative">
               <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
@@ -465,6 +465,17 @@ const DashboardPage = () => {
             <span className="ml-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-gray-400 uppercase tracking-widest hidden md:inline-block">
               Core v2.4
             </span>
+          </Link>
+
+          {/* Explicit Back to Homepage button */}
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00f0ff]/40 text-gray-300 hover:text-white font-medium text-xs transition-all shrink-0 cursor-pointer shadow-sm active:scale-95"
+            title="Return to NexGen AI Homepage"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-[#00f0ff]" />
+            <span className="hidden sm:inline">Back to Home</span>
+            <span className="sm:hidden">Home</span>
           </Link>
         </div>
 
@@ -553,7 +564,7 @@ const DashboardPage = () => {
       </div>
 
       {/* ── MAIN WORKSPACE ── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-12 space-y-10 overflow-x-hidden">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-12 pb-32 sm:pb-44 space-y-10 overflow-x-clip">
         
         {/* Feedback alert banner */}
         <AnimatePresence>
@@ -1512,6 +1523,35 @@ void main() {
         )}
 
       </main>
+
+      {/* ── DASHBOARD FOOTER (Safe Navigation & Telemetry State) ── */}
+      <footer className="mt-auto border-t border-white/5 bg-[#040409] px-4 sm:px-6 lg:px-12 py-8 text-xs text-gray-400">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-300 hover:text-[#00f0ff] transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#00f0ff]" />
+              <span>← Return to NexGen AI Main Website</span>
+            </Link>
+            <span className="text-gray-600 hidden sm:inline">•</span>
+            <span className="font-mono text-[11px] text-emerald-400 hidden sm:flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              All 312 Edge Nodes Synchronized
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px] font-mono text-gray-400 flex-wrap justify-center">
+            <Link to="/docs" className="hover:text-white transition-colors">API Docs</Link>
+            <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+            <Link to="/cockpit" className="text-[#00f0ff] hover:underline font-bold">3D Cockpit</Link>
+            <span className="text-gray-600">|</span>
+            <span className="text-gray-400">© 2026 NexGen AI PRO Systems</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
