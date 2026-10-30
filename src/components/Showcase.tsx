@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Volume2, VolumeX, ZoomIn, X, Cpu
+  Volume2, VolumeX, Cpu
 } from 'lucide-react';
 
 const PARTICLES = Array.from({ length: 15 }, (_, i) => ({
@@ -49,7 +49,7 @@ const Showcase = () => {
   // ── 6 CORE PLAYBACK STATES (EXACT SPECIFICATION) ──
   const [isVisible, setIsVisible] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [isZoomed, setIsZoomed] = useState(false);
+  const [isZoomed] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [restartOnReturn, setRestartOnReturn] = useState(false);
   const [interactionPlayback, setInteractionPlayback] = useState(false);
@@ -264,27 +264,6 @@ const Showcase = () => {
     }
   };
 
-  // ── KEYBOARD & SCROLL LOCK FOR ZOOM MODAL ──
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isZoomed) {
-        setIsZoomed(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isZoomed]);
-
-  useEffect(() => {
-    if (isZoomed) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
-  }, [isZoomed]);
-
   return (
     <section id="showcase" className="w-full py-16 sm:py-20 lg:py-24 px-6 relative bg-[#030305] overflow-hidden">
       <div className="max-w-7xl mx-auto relative z-10">
@@ -301,7 +280,7 @@ const Showcase = () => {
           </p>
         </div>
 
-        {/* Outer Vault Container - Preserves exact layout dimensions so page never reflows */}
+        {/* The Vault Container: Interactive Cinematic Video Player */}
         <div
           ref={playerContainerRef}
           data-is-visible={isVisible}
@@ -310,222 +289,115 @@ const Showcase = () => {
           data-is-zoomed={isZoomed}
           data-restart-on-return={restartOnReturn}
           data-interaction-playback={interactionPlayback}
-          className="relative max-w-4xl lg:max-w-5xl mx-auto w-full aspect-video"
+          className="relative max-w-4xl lg:max-w-5xl mx-auto w-full aspect-video rounded-2xl sm:rounded-3xl border border-white/15 bg-black overflow-hidden shadow-2xl group isolate"
+          style={{
+            transform: 'translateZ(0)',
+            borderRadius: '1.5rem',
+          }}
         >
-          {/* Ambient Placeholder when expanded in Zoom modal */}
-          {isZoomed && (
-            <div className="absolute inset-0 rounded-2xl sm:rounded-3xl border border-dashed border-[#00f0ff]/30 bg-black/60 flex flex-col items-center justify-center gap-3 backdrop-blur-sm pointer-events-none z-0">
-              <div className="p-3 rounded-2xl bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff]">
-                <ZoomIn className="w-6 h-6 animate-pulse" />
-              </div>
-              <div className="text-center font-mono">
-                <p className="text-white text-xs font-bold tracking-wider uppercase">Active In Zoom Modal</p>
-                <p className="text-gray-400 text-[11px] mt-0.5">Press Esc or click close to return</p>
-              </div>
-            </div>
-          )}
-
-          {/* Video Player Frame - Switches seamlessly between Inline and Centered Zoom Modal */}
-          <div
-            className={
-              isZoomed
-                ? 'fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/90 backdrop-blur-2xl'
-                : 'relative w-full h-full rounded-2xl sm:rounded-3xl border border-white/15 bg-black overflow-hidden shadow-2xl group isolate'
-            }
-            style={
-              isZoomed
-                ? {
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    zIndex: 99999,
-                  }
-                : {
-                    borderRadius: '1.5rem',
-                  }
-            }
-            onClick={(e) => {
-              if (isZoomed && e.target === e.currentTarget) {
-                setIsZoomed(false);
-              }
+          {/* Direct Inline Video: 4K 60 FPS Capable with Fallbacks */}
+          <video
+            ref={videoRef}
+            src="/mkv.mp4"
+            autoPlay
+            loop={!interactionPlayback}
+            muted={isMuted}
+            playsInline
+            preload="auto"
+            controls={false}
+            onEnded={handleEnded}
+            onPlay={() => {
+              setIsPlaying(true);
+              isPlayingRef.current = true;
+            }}
+            onPause={() => {
+              setIsPlaying(false);
+              isPlayingRef.current = false;
+            }}
+            onLoadedMetadata={handleLoadedMetadata}
+            onError={handleVideoError}
+            onStalled={handleStalled}
+            onWaiting={handleStalled}
+            className="w-full h-full object-cover object-center block rounded-[inherit] overflow-hidden"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              borderRadius: 'inherit',
+              transform: 'translateZ(0)',
             }}
           >
-            {/* Modal Dialog Card (Centered, width: min(95vw, 1200px), max-height: 90vh, uncropped) */}
-            <div
-              className={
-                isZoomed
-                  ? 'relative flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl border border-white/20 bg-black/95 shadow-[0_0_50px_rgba(0,240,255,0.15)] overflow-hidden'
-                  : 'relative w-full h-full overflow-hidden rounded-[inherit]'
-              }
-              style={
-                isZoomed
-                  ? {
-                      width: 'min(95vw, 1200px)',
-                      maxHeight: '90vh',
-                      aspectRatio: videoMeta ? `${videoMeta.width}/${videoMeta.height}` : '16/9',
-                    }
-                  : {
-                      width: '100%',
-                      height: '100%',
-                    }
-              }
-            >
-              {/* Single Shared Video Element (Never unmounted, zero playback disruption) */}
-              <video
-                ref={videoRef}
-                src="/mkv.mp4"
-                autoPlay
-                loop={!interactionPlayback}
-                muted={isMuted}
-                playsInline
-                preload="auto"
-                controls={false}
-                onEnded={handleEnded}
-                onPlay={() => {
-                  setIsPlaying(true);
-                  isPlayingRef.current = true;
-                }}
-                onPause={() => {
-                  setIsPlaying(false);
-                  isPlayingRef.current = false;
-                }}
-                onLoadedMetadata={handleLoadedMetadata}
-                onError={handleVideoError}
-                onStalled={handleStalled}
-                onWaiting={handleStalled}
-                className={`w-full h-full block rounded-[inherit] ${
-                  isZoomed ? 'object-contain' : 'object-cover object-center'
+            <source src="/mkv.mp4" type="video/mp4" />
+            <source src="/mkv.mkv" type="video/x-matroska" />
+            <source src="/mkv.mkv" />
+            <source src="/showcase_mesh.mp4" type='video/mp4; codecs="avc1.64002a"' />
+            <source src="/nextgen.mp4" type="video/mp4" />
+            <source src="/video%20nextgen.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+
+          {/* Scanning Light Effect: Strictly confined inside container bounds */}
+          <motion.div
+            animate={{ top: ['0%', '75%'] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+            className="absolute left-0 w-full h-1/4 bg-gradient-to-b from-transparent via-[#00f0ff15] to-transparent z-10 pointer-events-none"
+          />
+
+          {/* Subtle Ambient Depth Gradients */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none rounded-[inherit]" />
+
+          {/* 3D Neural Grid Overlay - Bound within container frame */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[inherit]">
+            <NeuralGrid3D />
+          </div>
+
+          {/* Top HUD Telemetry Bar inside Container */}
+          <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-20 flex items-center justify-between pointer-events-none">
+            <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+              <div className="p-2 sm:p-2.5 rounded-xl bg-black/75 border border-[#00f0ff]/30 backdrop-blur-xl shadow-lg">
+                <Cpu className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f0ff]" />
+              </div>
+              <div>
+                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-mono font-bold text-[#00f0ff]">
+                  SPATIAL COMPUTING
+                </div>
+                <div className="text-xs sm:text-sm font-black text-white font-mono flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>
+                    {videoMeta?.is4K ? '4K UHD @ 60FPS ACTIVE' : 'LIVE STREAM ACTIVE'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Controls Bar: ONLY Mute/Unmute button */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 p-3 sm:p-5 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-between pointer-events-auto rounded-b-[inherit]">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={toggleMute}
+                className={`px-3.5 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 ${
+                  isMuted
+                    ? 'bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/50 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.2)]'
+                    : 'bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
                 }`}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: isZoomed ? 'contain' : 'cover',
-                  objectPosition: 'center',
-                  borderRadius: 'inherit',
-                  maxHeight: isZoomed ? '90vh' : undefined,
-                }}
+                title={isMuted ? 'Click to Unmute and Restart Audio' : 'Click to Mute and Restart Audio'}
+                aria-label={isMuted ? 'Unmute Video' : 'Mute Video'}
               >
-                <source src="/mkv.mp4" type="video/mp4" />
-                <source src="/mkv.mkv" type="video/x-matroska" />
-                <source src="/mkv.mkv" />
-                <source src="/showcase_mesh.mp4" type='video/mp4; codecs="avc1.64002a"' />
-                <source src="/nextgen.mp4" type="video/mp4" />
-                <source src="/video%20nextgen.mp4" type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-
-              {/* Clean Close Button in Top-Right Corner (When Zoomed) */}
-              {isZoomed && (
-                <button
-                  type="button"
-                  onClick={() => setIsZoomed(false)}
-                  className="absolute top-3 right-3 sm:top-5 sm:right-5 z-50 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-white/20 text-gray-300 hover:text-white border border-white/20 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 flex items-center justify-center group"
-                  title="Close Modal (Esc)"
-                  aria-label="Close Modal"
-                >
-                  <X className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors" />
-                </button>
-              )}
-
-              {/* Scanning Light Effect (Only in inline view) */}
-              {!isZoomed && (
-                <motion.div
-                  animate={{ top: ['0%', '75%'] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-                  className="absolute left-0 w-full h-1/4 bg-gradient-to-b from-transparent via-[#00f0ff15] to-transparent z-10 pointer-events-none"
-                />
-              )}
-
-              {/* Subtle Ambient Depth Gradients */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none rounded-[inherit]" />
-
-              {/* 3D Neural Grid Overlay (Only in inline view) */}
-              {!isZoomed && (
-                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[inherit]">
-                  <NeuralGrid3D />
-                </div>
-              )}
-
-              {/* Top HUD Telemetry Bar */}
-              <div className="absolute top-3 sm:top-6 left-3 sm:left-6 right-3 sm:right-6 z-20 flex items-center justify-between pointer-events-none">
-                <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
-                  <div className="p-2 sm:p-2.5 rounded-xl bg-black/75 border border-[#00f0ff]/30 backdrop-blur-xl shadow-lg">
-                    <Cpu className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f0ff]" />
-                  </div>
-                  <div>
-                    <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-mono font-bold text-[#00f0ff]">
-                      {isZoomed ? 'SPATIAL ENGINE :: EXPANDED' : 'SPATIAL COMPUTING'}
-                    </div>
-                    <div className="text-xs sm:text-sm font-black text-white font-mono flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span>
-                        {videoMeta?.is4K ? '4K UHD @ 60FPS ACTIVE' : 'LIVE STREAM ACTIVE'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom Controls Bar (No play/pause button, no progress bar) */}
-              <div className="absolute bottom-0 left-0 right-0 z-20 p-3 sm:p-5 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-between pointer-events-auto rounded-b-[inherit]">
-                {/* Left: Mute/Unmute button - The ONLY playback control on main player */}
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <button
-                    type="button"
-                    onClick={toggleMute}
-                    className={`px-3.5 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 ${
-                      isMuted
-                        ? 'bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/50 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.2)]'
-                        : 'bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                    }`}
-                    title={isMuted ? 'Click to Unmute and Restart Audio' : 'Click to Mute and Restart Audio'}
-                    aria-label={isMuted ? 'Unmute Video' : 'Mute Video'}
-                  >
-                    {isMuted ? (
-                      <>
-                        <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
-                        <span>Unmute</span>
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
-                        <span className="text-emerald-300">Mute</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Right: Clean, normal Zoom In button with standard magnifying glass icon */}
-                {!isZoomed ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsZoomed(true)}
-                      className="px-3.5 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white hover:text-[#00f0ff] hover:border-[#00f0ff]/50 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95 group"
-                      title="Zoom In (Expanded View)"
-                      aria-label="Zoom In"
-                    >
-                      <ZoomIn className="w-4 h-4 text-white group-hover:text-[#00f0ff] transition-colors shrink-0" />
-                      <span>Zoom In</span>
-                    </button>
-                  </div>
+                {isMuted ? (
+                  <>
+                    <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>Unmute</span>
+                  </>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsZoomed(false)}
-                      className="px-3.5 sm:px-4 py-2 rounded-xl font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white hover:text-[#00f0ff] hover:border-[#00f0ff]/50 transition-all cursor-pointer shadow-lg backdrop-blur-md active:scale-95"
-                      title="Exit Expanded View (Esc)"
-                      aria-label="Exit Expanded View"
-                    >
-                      <X className="w-4 h-4 text-white shrink-0" />
-                      <span>Close</span>
-                    </button>
-                  </div>
+                  <>
+                    <Volume2 className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
+                    <span className="text-emerald-300">Mute</span>
+                  </>
                 )}
-              </div>
+              </button>
             </div>
           </div>
         </div>
