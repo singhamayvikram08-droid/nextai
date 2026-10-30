@@ -2065,25 +2065,38 @@ void main() {
         )}
       </AnimatePresence>
 
-      {/* ── DASHBOARD FOOTER (Safe Navigation & Telemetry State) ── */}
+      {/* ── DASHBOARD FOOTER (Safe Navigation & Telemetry State with Chatbot Safe Clearance) ── */}
       <footer className="mt-auto border-t border-white/5 bg-[#040409] px-4 sm:px-6 lg:px-12 py-8 text-xs text-gray-400">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start">
             <button
               onClick={handleLogoClick}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-300 hover:text-[#00f0ff] transition-colors cursor-pointer bg-transparent border-none p-0"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-[#00f0ff] transition-colors cursor-pointer active:scale-95 shadow-sm"
+              title="Return to previous page"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#00f0ff]" />
-              <span>← Back to Previous Page</span>
+              <span>Back to Previous Page</span>
             </button>
-            <span className="text-gray-600 hidden sm:inline">•</span>
-            <span className="font-mono text-[11px] text-emerald-400 hidden sm:flex items-center gap-1">
+
+            {/* High-visibility Sign Out button placed safely on left */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Sign Out of NexGen AI"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span>Sign Out</span>
+            </button>
+
+            <span className="font-mono text-[11px] text-emerald-400 hidden lg:flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               All 312 Edge Nodes Synchronized
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px] font-mono text-gray-400 flex-wrap justify-center">
+          {/* Right Navigation & Legal Links with Dedicated Right Clearance for Floating ChatBot */}
+          <div className="flex items-center gap-4 text-[11px] font-mono text-gray-400 flex-wrap justify-center md:justify-end pr-0 md:pr-24 lg:pr-28">
             <button
               type="button"
               onClick={() => handleTabChange('pricing')}
@@ -2095,13 +2108,6 @@ void main() {
             <Link to="/docs" className="hover:text-white transition-colors">API Docs</Link>
             <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="text-rose-400 hover:text-rose-300 font-bold transition-colors cursor-pointer"
-            >
-              Sign Out
-            </button>
             <span className="text-gray-600">|</span>
             <span className="text-gray-400">© 2026 NexGen AI PRO Systems</span>
           </div>

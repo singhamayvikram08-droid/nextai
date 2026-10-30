@@ -186,8 +186,8 @@ const Footer = () => {
 
       </div>
 
-      {/* Bottom Bar */}
-      <div className="max-w-7xl mx-auto pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+      {/* Bottom Bar with Right Clearance for ChatBot */}
+      <div className="max-w-7xl mx-auto pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 pr-0 md:pr-24 lg:pr-28">
         <p className="text-gray-400 text-xs text-center md:text-left">
           © {new Date().getFullYear()} NexGen Technologies Inc. All rights reserved. Sub-ms Edge Infrastructure.
         </p>
