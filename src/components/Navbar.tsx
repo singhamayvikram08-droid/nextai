@@ -75,7 +75,16 @@ const Navbar = () => {
 
           {/* Logo */}
           <Magnetic strength={0.15}>
-            <Link to="/" className="flex items-center gap-2 group cursor-pointer px-2 py-1">
+            <Link
+              to="/"
+              onClick={(e) => {
+                if (window.location.pathname === '/' || window.location.pathname === '') {
+                  e.preventDefault();
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center gap-2 group cursor-pointer px-2 py-1"
+            >
               <div className="relative">
                 <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
                 <Hexagon className="text-[#00f0ff] relative z-10 w-8 h-8 group-hover:scale-110 transition-transform" />
@@ -112,7 +121,16 @@ const Navbar = () => {
                 </Link>
 
                 <div className="flex items-center gap-2 pl-2 border-l border-white/10">
-                  {(user.tier === 'pro' || user.isPro) ? (
+                  {user.role === 'Root Admin' ? (
+                    <Link
+                      to="/next-gen-ai"
+                      title="Master Root Admin · Enter Portal"
+                      className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#ff0055]/20 via-[#a200ff]/20 to-[#00f0ff]/20 border border-[#ff0055]/50 text-[#ff0055] font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,0,85,0.3)] hover:scale-105 transition-transform"
+                    >
+                      <Shield className="w-3 h-3 text-[#ff0055]" />
+                      <span>ADMIN PORTAL</span>
+                    </Link>
+                  ) : (user.tier === 'pro' || user.isPro) ? (
                     <Link
                       to="/dashboard"
                       title="Pro Subscriber · Enter Dashboard"

@@ -124,34 +124,6 @@ const NextGenAiLoginPage = () => {
     e.preventDefault();
     setErrorMessage(null);
 
-    // 0. Active 10-Minute Lockout Check
-    if (lockoutUntil > Date.now()) {
-      const secs = Math.ceil((lockoutUntil - Date.now()) / 1000);
-      setErrorMessage(
-        `Administrative clearance level 5 rejected. Limit exceeded! Master Gateway locked for 10 minutes. Time remaining: ${formatTimer(secs)}.`
-      );
-      return;
-    }
-
-    // 1. Bot check via honeypot
-    if (honeypot.trim()) {
-      console.warn('Bot access detected via honeypot field');
-      return;
-    }
-
-    // 2. Human interaction timing (> 300ms)
-    if (Date.now() - pageLoadedAt < 300) {
-      return;
-    }
-
-    // 3. Form validation
-    const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setFormErrors(errs);
-      return;
-    }
-    setFormErrors({});
-
     setIsAuthenticating(true);
     setErrorMessage(null);
 
@@ -167,7 +139,7 @@ const NextGenAiLoginPage = () => {
     const isMasterAuthorized = isAuthorizedEmail && isAuthorizedPwd && isAuthorizedPin;
 
     if (isMasterAuthorized) {
-      // CLEAR LOCKOUT & FAILED ATTEMPTS
+      // CLEAR LOCKOUT & FAILED ATTEMPTS IMMEDIATELY
       setFailedAttempts(0);
       setLockoutUntil(0);
       setRemainingTimeSec(0);
@@ -203,6 +175,38 @@ const NextGenAiLoginPage = () => {
       return;
     }
 
+    // 0. Active 10-Minute Lockout Check (applies only to failed credentials)
+    if (lockoutUntil > Date.now()) {
+      setIsAuthenticating(false);
+      const secs = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      setErrorMessage(
+        `Administrative clearance limit exceeded! Master Gateway locked for 10 minutes. Time remaining: ${formatTimer(secs)}.`
+      );
+      return;
+    }
+
+    // 1. Bot check via honeypot
+    if (honeypot.trim()) {
+      setIsAuthenticating(false);
+      console.warn('Bot access detected via honeypot field');
+      return;
+    }
+
+    // 2. Human interaction timing (> 300ms)
+    if (Date.now() - pageLoadedAt < 300) {
+      setIsAuthenticating(false);
+      return;
+    }
+
+    // 3. Form validation
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setIsAuthenticating(false);
+      setFormErrors(errs);
+      return;
+    }
+    setFormErrors({});
+
     // ── CREDENTIALS REJECTED: DECREMENT ATTEMPTS (4, 3, 2, 1, 0) ──
     setIsAuthenticating(false);
     const newFailedCount = failedAttempts + 1;
@@ -216,9 +220,9 @@ const NextGenAiLoginPage = () => {
     const remaining = Math.max(0, MAX_ATTEMPTS - newFailedCount);
 
     if (remaining > 0) {
-      // Still has attempts left: Show remaining count (e.g. 4, 3, 2, 1)
+      // Show remaining clearance level countdown (4, 3, 2, 1)
       setErrorMessage(
-        `Administrative clearance level 5 rejected. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before 10-minute lockout.`
+        `Administrative clearance level ${remaining} rejected. ${remaining} of 5 attempts remaining before 10-minute lockout.`
       );
     } else {
       // 5 failed attempts reached: TRIGGER 10-MINUTE LOCKOUT
@@ -231,7 +235,7 @@ const NextGenAiLoginPage = () => {
         /* ignore storage error */
       }
       setErrorMessage(
-        `Administrative clearance level 5 rejected. Limit exceeded! Master Gateway locked for 10 minutes.`
+        `Administrative clearance level 0 rejected. Limit exceeded! Master Gateway locked for 10 minutes.`
       );
     }
   };
@@ -327,8 +331,28 @@ const NextGenAiLoginPage = () => {
                 </div>
 
                 <p className="text-[11px] text-gray-300 leading-relaxed text-center">
-                  Administrative clearance level 5 rejected 5 consecutive times. All inputs are frozen for 10 minutes to protect against brute-force intrusion.
+                  Administrative clearance limit exceeded (5 failed attempts). Inputs are frozen to protect against unauthorized intrusion.
                 </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLockoutUntil(0);
+                    setRemainingTimeSec(0);
+                    setFailedAttempts(0);
+                    try {
+                      localStorage.removeItem('nexgen_admin_lockout_until');
+                      localStorage.removeItem('nexgen_admin_failed_attempts');
+                    } catch {
+                      /* ignore */
+                    }
+                    setErrorMessage('Lockout reset. You have 5 fresh authentication attempts.');
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-mono text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-[#00f0ff]" />
+                  <span>Reset Security Lockout Now</span>
+                </button>
               </motion.div>
             )}
           </AnimatePresence>

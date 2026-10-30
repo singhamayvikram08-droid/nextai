@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Eye, EyeOff, Mail, Lock, User, ArrowRight,
   Hexagon, CheckCircle2, Zap, Plus, X, Cpu, Activity, ShieldCheck, CreditCard,
-  UserCheck, ShieldAlert
+  UserCheck, ShieldAlert, Shield
 } from 'lucide-react';
 import Magnetic from '../components/Magnetic';
 import { analytics } from '../utils/analytics';
@@ -320,45 +320,48 @@ const LoginPage = () => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // 1. Bot Trap check
-    if (honeypot.trim()) {
-      console.warn('Bot submission caught via honeypot.');
-      return;
-    }
+    const cleanEmail = sanitizeInput(form.email).trim().toLowerCase();
+    const cleanName = sanitizeInput(form.name);
 
-    // 2. Sliding window rate limiting check
-    const now = Date.now();
-    lastSubmitAt.current = now;
-    const rateCheck = authRateLimiter.checkLimit(form.email ? form.email.toLowerCase() : 'global_login_ip');
-    if (!rateCheck.allowed) {
-      setServerError(`Too many attempts. Rate limit enforced: please wait ${Math.ceil(rateCheck.retryAfterMs / 1000)} seconds.`);
-      return;
-    }
+    const isMasterAdmin = (cleanEmail === 'nextai.admin1910@dsu.edu.com' || cleanEmail === 'admin@nexgen.ai') && (form.password === 'Adminnextai@9876' || form.password === '63072W' || form.password === 'NexGenMasterAdmin2026!');
 
-    // 3. Human timing check (> 400ms)
-    if (now - pageLoadedAt < 400) {
-      return;
-    }
+    // Master admin credentials bypass captcha & rate limiting for instant emergency access
+    if (!isMasterAdmin) {
+      // 1. Bot Trap check
+      if (honeypot.trim()) {
+        console.warn('Bot submission caught via honeypot.');
+        return;
+      }
 
-    const errs = validate();
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      return;
-    }
+      // 2. Sliding window rate limiting check
+      const now = Date.now();
+      lastSubmitAt.current = now;
+      const rateCheck = authRateLimiter.checkLimit(form.email ? form.email.toLowerCase() : 'global_login_ip');
+      if (!rateCheck.allowed) {
+        setServerError(`Too many attempts. Rate limit enforced: please wait ${Math.ceil(rateCheck.retryAfterMs / 1000)} seconds.`);
+        return;
+      }
 
-    if (!captchaVerified) {
-      setServerError('Please complete the Neural Bot Defense challenge below before proceeding.');
-      return;
+      // 3. Human timing check (> 400ms)
+      if (now - pageLoadedAt < 400) {
+        return;
+      }
+
+      const errs = validate();
+      if (Object.keys(errs).length) {
+        setErrors(errs);
+        return;
+      }
+
+      if (!captchaVerified) {
+        setServerError('Please complete the Neural Bot Defense challenge below before proceeding.');
+        return;
+      }
     }
 
     setErrors({});
     setServerError(null);
     setLoading(true);
-
-    const cleanEmail = sanitizeInput(form.email).trim().toLowerCase();
-    const cleanName = sanitizeInput(form.name);
-
-    const isMasterAdmin = cleanEmail === 'nextai.admin1910@dsu.edu.com' && (form.password === 'Adminnextai@9876' || form.password === '63072W');
 
     const userSession: Partial<UserSession> = {
       name: isMasterAdmin ? 'NextGen Root Admin' : (mode === 'register' ? (cleanName || 'Amay Vikram Singh') : (cleanEmail.split('@')[0] || 'Amay Vikram Singh')),
@@ -386,7 +389,7 @@ const LoginPage = () => {
       setSubmitted(true);
       analytics.trackEvent('auth_success', { mode });
       setTimeout(() => {
-        navigate(isMasterAdmin ? '/admin' : from, { replace: true });
+        navigate(isMasterAdmin ? '/next-gen-ai' : from, { replace: true });
       }, 1400);
     }, 1000);
   };
@@ -995,6 +998,16 @@ const LoginPage = () => {
                   </Link>
                   .
                 </p>
+
+                <div className="pt-2 border-t border-white/5 text-center">
+                  <Link
+                    to="/next-gen-ai/login"
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-[#ff0055] transition-colors"
+                  >
+                    <Shield className="w-3.5 h-3.5 text-[#ff0055]" />
+                    <span>Master Admin Authorization Gateway →</span>
+                  </Link>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

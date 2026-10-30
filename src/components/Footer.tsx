@@ -89,6 +89,12 @@ const Footer = () => {
               </Link>
             </li>
             <li>
+              <Link to="/next-gen-ai/login" className="hover:text-[#ff0055] transition-colors flex items-center gap-1.5 font-mono text-xs">
+                <span>Master Admin Gateway</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-[#ff0055]/20 text-[#ff0055] font-bold border border-[#ff0055]/30">L5</span>
+              </Link>
+            </li>
+            <li>
               <button 
                 onClick={() => scrollTo('#testimonials')} 
                 className="hover:text-[#a200ff] transition-colors text-left cursor-pointer"

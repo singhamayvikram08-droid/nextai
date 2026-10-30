@@ -357,8 +357,14 @@ const Showcase = () => {
           <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-20 flex items-center justify-between pointer-events-none">
             <Link
               to="/"
-              className="flex items-center gap-2 sm:gap-2.5 pointer-events-auto group cursor-pointer px-3 py-2 rounded-xl bg-black/75 border border-[#00f0ff]/30 backdrop-blur-xl shadow-lg hover:border-[#00f0ff]/60 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all"
-              title="Back to NexGen AI Home"
+              onClick={(e) => {
+                if (window.location.pathname === '/' || window.location.pathname === '') {
+                  e.preventDefault();
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center gap-2 sm:gap-2.5 pointer-events-auto group cursor-pointer px-3 py-2 rounded-xl bg-black/75 border border-[#00f0ff]/30 backdrop-blur-xl shadow-lg hover:border-[#00f0ff]/60 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all active:scale-95"
+              title="Return to top of page / NexGen AI Home"
               aria-label="Navigate to NexGen AI homepage"
             >
               <div className="relative">
