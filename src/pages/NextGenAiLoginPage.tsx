@@ -10,7 +10,23 @@ import { setStoredAuth } from '../utils/auth';
 import { usePageSEO } from '../utils/usePageSEO';
 
 const MAX_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 minutes (600,000 ms)
+
+// Progressive Escalation Security Policy:
+// Cycle 1: 10 minutes
+// Cycle 2: 4 hours
+// Cycle 3+: Exceed by 6 hours every subsequent lockout (Cycle 3 = 10 hrs, Cycle 4 = 16 hrs, Cycle 5 = 22 hrs, etc.)
+const getLockoutDurationMs = (cycle: number): number => {
+  if (cycle <= 1) return 10 * 60 * 1000; // 10 minutes (600,000 ms)
+  if (cycle === 2) return 4 * 60 * 60 * 1000; // 4 hours (14,400,000 ms)
+  return (4 + (cycle - 2) * 6) * 60 * 60 * 1000; // +6 hours each subsequent time
+};
+
+const getDurationLabel = (cycle: number): string => {
+  if (cycle <= 1) return '10 minutes';
+  if (cycle === 2) return '4 hours';
+  const hrs = 4 + (cycle - 2) * 6;
+  return `${hrs} hours`;
+};
 
 const NextGenAiLoginPage = () => {
   usePageSEO({
@@ -29,10 +45,19 @@ const NextGenAiLoginPage = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [authSuccess, setAuthSuccess] = useState(false);
 
-  // ── ATTEMPT TRACKING (5, 4, 3, 2, 1) & 10-MINUTE LOCKOUT TIMER ──
+  // ── ATTEMPT TRACKING (5, 4, 3, 2, 1) & PROGRESSIVE LOCKOUT TIMER ──
   const [failedAttempts, setFailedAttempts] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('nexgen_admin_failed_attempts');
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [lockoutCycle, setLockoutCycle] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('nexgen_admin_lockout_cycle');
       return saved ? parseInt(saved, 10) || 0 : 0;
     } catch {
       return 0;
@@ -62,14 +87,18 @@ const NextGenAiLoginPage = () => {
   const isLockedOut = lockoutUntil > 0 && remainingTimeSec > 0;
   const remainingAttempts = Math.max(0, MAX_ATTEMPTS - failedAttempts);
 
-  // Format MM:SS for 10-minute countdown
+  // Format HH:MM:SS or MM:SS for countdown timer
   const formatTimer = (totalSeconds: number) => {
-    const mins = Math.floor(totalSeconds / 60);
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
+    if (hours > 0) {
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  // Live real-time 1-second countdown clock for 10-minute lockout
+  // Live real-time 1-second countdown clock for progressive lockout
   useEffect(() => {
     if (!lockoutUntil || lockoutUntil <= Date.now()) {
       return;
@@ -88,15 +117,19 @@ const NextGenAiLoginPage = () => {
         try {
           localStorage.removeItem('nexgen_admin_lockout_until');
           localStorage.removeItem('nexgen_admin_failed_attempts');
+          // Note: lockoutCycle is maintained so that repeated failures escalate to the next tier!
         } catch {
           /* ignore storage error */
         }
-        setErrorMessage('Security lockout expired. You have 5 fresh authentication attempts.');
+        const nextCycle = lockoutCycle + 1;
+        setErrorMessage(
+          `Security lockout expired. 5 fresh attempts granted. (Note: Next violation escalates to ${getDurationLabel(nextCycle)} lockout).`
+        );
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [lockoutUntil]);
+  }, [lockoutUntil, lockoutCycle]);
 
   // Anti-Spam & Bot Protection
   const [honeypot, setHoneypot] = useState('');
@@ -139,13 +172,15 @@ const NextGenAiLoginPage = () => {
     const isMasterAuthorized = isAuthorizedEmail && isAuthorizedPwd && isAuthorizedPin;
 
     if (isMasterAuthorized) {
-      // CLEAR LOCKOUT & FAILED ATTEMPTS IMMEDIATELY
+      // CLEAR ALL LOCKOUT & ESCALATION LEVELS IMMEDIATELY
       setFailedAttempts(0);
       setLockoutUntil(0);
       setRemainingTimeSec(0);
+      setLockoutCycle(0);
       try {
         localStorage.removeItem('nexgen_admin_failed_attempts');
         localStorage.removeItem('nexgen_admin_lockout_until');
+        localStorage.removeItem('nexgen_admin_lockout_cycle');
       } catch {
         /* ignore storage error */
       }
@@ -175,12 +210,13 @@ const NextGenAiLoginPage = () => {
       return;
     }
 
-    // 0. Active 10-Minute Lockout Check (applies only to failed credentials)
+    // 0. Active Lockout Check (applies only to failed credentials)
     if (lockoutUntil > Date.now()) {
       setIsAuthenticating(false);
       const secs = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      const durationLabel = getDurationLabel(lockoutCycle || 1);
       setErrorMessage(
-        `Administrative clearance limit exceeded! Master Gateway locked for 10 minutes. Time remaining: ${formatTimer(secs)}.`
+        `Administrative clearance limit exceeded! Master Gateway locked for ${durationLabel}. Time remaining: ${formatTimer(secs)}.`
       );
       return;
     }
@@ -218,24 +254,32 @@ const NextGenAiLoginPage = () => {
     }
 
     const remaining = Math.max(0, MAX_ATTEMPTS - newFailedCount);
+    const nextCycle = lockoutCycle + 1;
+    const nextDurationLabel = getDurationLabel(nextCycle);
 
     if (remaining > 0) {
       // Show remaining clearance level countdown (4, 3, 2, 1)
       setErrorMessage(
-        `Administrative clearance level ${remaining} rejected. ${remaining} of 5 attempts remaining before 10-minute lockout.`
+        `Administrative clearance level ${remaining} rejected. ${remaining} of 5 attempts remaining before ${nextDurationLabel} lockout.`
       );
     } else {
-      // 5 failed attempts reached: TRIGGER 10-MINUTE LOCKOUT
-      const lockUntil = Date.now() + LOCKOUT_DURATION_MS;
+      // 5 failed attempts reached: TRIGGER ESCALATED LOCKOUT
+      // Cycle 1 = 10 mins, Cycle 2 = 4 hrs, Cycle 3 = 10 hrs, Cycle 4 = 16 hrs (+6 hrs each subsequent time)
+      const newCycle = lockoutCycle + 1;
+      setLockoutCycle(newCycle);
+      const durationMs = getLockoutDurationMs(newCycle);
+      const durationLabel = getDurationLabel(newCycle);
+      const lockUntil = Date.now() + durationMs;
       setLockoutUntil(lockUntil);
-      setRemainingTimeSec(Math.ceil(LOCKOUT_DURATION_MS / 1000));
+      setRemainingTimeSec(Math.ceil(durationMs / 1000));
       try {
+        localStorage.setItem('nexgen_admin_lockout_cycle', String(newCycle));
         localStorage.setItem('nexgen_admin_lockout_until', String(lockUntil));
       } catch {
         /* ignore storage error */
       }
       setErrorMessage(
-        `Administrative clearance level 0 rejected. Limit exceeded! Master Gateway locked for 10 minutes.`
+        `Administrative clearance level 0 rejected. Limit exceeded! Master Gateway locked for ${durationLabel}.`
       );
     }
   };
@@ -304,7 +348,7 @@ const NextGenAiLoginPage = () => {
 
         <div className="p-8 rounded-3xl bg-[#06060e]/90 backdrop-blur-2xl border border-white/10 shadow-2xl space-y-6">
           
-          {/* ── 10-MINUTE LOCKOUT ACTIVE BANNER (LIMIT EXCEEDED) ── */}
+          {/* ── PROGRESSIVE LOCKOUT ACTIVE BANNER (LIMIT EXCEEDED) ── */}
           <AnimatePresence>
             {isLockedOut && (
               <motion.div
@@ -316,22 +360,25 @@ const NextGenAiLoginPage = () => {
                 <div className="flex items-center justify-between border-b border-rose-500/30 pb-2">
                   <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
                     <Clock className="w-4 h-4 animate-pulse shrink-0" />
-                    <span>LIMIT EXCEEDED · 10 MINUTE LOCKOUT</span>
+                    <span>LIMIT EXCEEDED · {getDurationLabel(lockoutCycle || 1).toUpperCase()} LOCKOUT</span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500/30 text-rose-300 border border-rose-500/60 uppercase animate-pulse">
-                    FROZEN
+                    TIER {lockoutCycle || 1}
                   </span>
                 </div>
 
                 <div className="text-center py-2 space-y-1">
                   <div className="text-[11px] text-gray-400 uppercase tracking-widest">Time Remaining Before Reset:</div>
-                  <div className="text-4xl sm:text-5xl font-black text-rose-400 tracking-widest font-mono drop-shadow-[0_0_20px_rgba(244,63,94,0.5)]">
+                  <div className="text-3xl sm:text-4xl font-black text-rose-400 tracking-widest font-mono drop-shadow-[0_0_20px_rgba(244,63,94,0.5)]">
                     {formatTimer(remainingTimeSec)}
+                  </div>
+                  <div className="text-[10px] text-rose-300/80 font-mono pt-1">
+                    Escalation: Tier {lockoutCycle || 1} ({getDurationLabel(lockoutCycle || 1)}) → Next Penalty: {getDurationLabel((lockoutCycle || 1) + 1)} (+6 hrs)
                   </div>
                 </div>
 
                 <p className="text-[11px] text-gray-300 leading-relaxed text-center">
-                  Administrative clearance limit exceeded (5 failed attempts). Inputs are frozen to protect against unauthorized intrusion.
+                  Administrative clearance limit exceeded (5 failed attempts). Progressive security escalation is active: initial lockout is 10 minutes, 2nd violation is 4 hours, and then duration increases by 6 hours for every subsequent violation.
                 </p>
 
                 <button
@@ -340,13 +387,15 @@ const NextGenAiLoginPage = () => {
                     setLockoutUntil(0);
                     setRemainingTimeSec(0);
                     setFailedAttempts(0);
+                    setLockoutCycle(0);
                     try {
                       localStorage.removeItem('nexgen_admin_lockout_until');
                       localStorage.removeItem('nexgen_admin_failed_attempts');
+                      localStorage.removeItem('nexgen_admin_lockout_cycle');
                     } catch {
                       /* ignore */
                     }
-                    setErrorMessage('Lockout reset. You have 5 fresh authentication attempts.');
+                    setErrorMessage('Lockout policy fully reset. You have 5 fresh authentication attempts.');
                   }}
                   className="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-mono text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
                 >
