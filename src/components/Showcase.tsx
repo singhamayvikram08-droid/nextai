@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
-  Volume2, VolumeX, Cpu
+  Volume2, VolumeX, Hexagon
 } from 'lucide-react';
 
 const PARTICLES = Array.from({ length: 15 }, (_, i) => ({
@@ -269,7 +270,7 @@ const Showcase = () => {
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="text-center mb-8 sm:mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-xs font-bold uppercase tracking-widest mb-3 font-mono">
-            <Cpu className="w-3.5 h-3.5 text-[#00f0ff]" />
+            <Hexagon className="w-3.5 h-3.5 text-[#00f0ff]" />
             <span>Neural Engine :: Live Mesh Cam</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-4 tracking-tight text-white">
@@ -352,23 +353,27 @@ const Showcase = () => {
             <NeuralGrid3D />
           </div>
 
-          {/* Top HUD Telemetry Bar inside Container */}
+          {/* Top HUD: Clickable NexGen AI Logo → Homepage */}
           <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-20 flex items-center justify-between pointer-events-none">
-            <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
-              <div className="p-2 sm:p-2.5 rounded-xl bg-black/75 border border-[#00f0ff]/30 backdrop-blur-xl shadow-lg">
-                <Cpu className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f0ff]" />
+            <Link
+              to="/"
+              className="flex items-center gap-2 sm:gap-2.5 pointer-events-auto group cursor-pointer px-3 py-2 rounded-xl bg-black/75 border border-[#00f0ff]/30 backdrop-blur-xl shadow-lg hover:border-[#00f0ff]/60 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all"
+              title="Back to NexGen AI Home"
+              aria-label="Navigate to NexGen AI homepage"
+            >
+              <div className="relative">
+                <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-30 group-hover:opacity-70 transition-opacity rounded-full" />
+                <Hexagon className="text-[#00f0ff] relative z-10 w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
               </div>
-              <div>
-                <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] font-mono font-bold text-[#00f0ff]">
-                  SPATIAL COMPUTING
-                </div>
-                <div className="text-xs sm:text-sm font-black text-white font-mono flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>
-                    {videoMeta?.is4K ? '4K UHD @ 60FPS ACTIVE' : 'LIVE STREAM ACTIVE'}
-                  </span>
-                </div>
-              </div>
+              <span className="font-bold text-xs sm:text-sm tracking-wide uppercase text-white">
+                Nex<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00f0ff] to-[#a200ff]">Gen AI</span>
+              </span>
+            </Link>
+            <div className="flex items-center gap-1.5 pointer-events-auto px-3 py-2 rounded-xl bg-black/75 border border-white/10 backdrop-blur-xl">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.15em] font-mono font-bold text-white/80">
+                {videoMeta?.is4K ? '4K UHD' : 'LIVE'}
+              </span>
             </div>
           </div>
 
