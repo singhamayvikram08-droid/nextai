@@ -5,7 +5,7 @@ import {
   Hexagon, Cpu, Zap, Shield, Globe, 
   Terminal, ArrowUpRight, LogOut, Sparkles, RefreshCw, Layers,
   Server, Trash2, CheckCircle2, FileText,
-  Activity, Gauge, Send, Copy, Download, Check, ArrowLeft,
+  Activity, Gauge, Send, Copy, Download, Check,
   CreditCard, Lock, Star, X
 } from 'lucide-react';
 import Magnetic from '../components/Magnetic';
@@ -515,8 +515,8 @@ const DashboardPage = () => {
           <button
             onClick={handleLogoClick}
             className="flex items-center gap-2.5 group cursor-pointer shrink-0 text-left bg-transparent border-none p-0 focus:outline-none"
-            title="Step Back / Return to Previous Page"
-            aria-label="Step Back / Return to Previous Page"
+            title="NextGen AI"
+            aria-label="NextGen AI"
           >
             <div className="relative">
               <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
@@ -531,18 +531,6 @@ const DashboardPage = () => {
             <span className="ml-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-gray-400 uppercase tracking-widest hidden md:inline-block">
               Core v2.4
             </span>
-          </button>
-
-          {/* Explicit Back button - Steps back one by one */}
-          <button
-            onClick={handleLogoClick}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00f0ff]/40 text-gray-300 hover:text-white font-medium text-xs transition-all shrink-0 cursor-pointer shadow-sm active:scale-95"
-            title="Step back to previous page"
-            aria-label="Step back to previous page"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 text-[#00f0ff]" />
-            <span className="hidden sm:inline">Back</span>
-            <span className="sm:hidden">Back</span>
           </button>
         </div>
 
@@ -2065,31 +2053,11 @@ void main() {
         )}
       </AnimatePresence>
 
-      {/* ── DASHBOARD FOOTER (Safe Navigation & Telemetry State with Chatbot Safe Clearance) ── */}
+      {/* ── DASHBOARD FOOTER (Telemetry State with Chatbot Safe Clearance) ── */}
       <footer className="mt-auto border-t border-white/5 bg-[#040409] px-4 sm:px-6 lg:px-12 py-8 text-xs text-gray-400">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start">
-            <button
-              onClick={handleLogoClick}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-[#00f0ff] transition-colors cursor-pointer active:scale-95 shadow-sm"
-              title="Return to previous page"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#00f0ff]" />
-              <span>Back to Previous Page</span>
-            </button>
-
-            {/* High-visibility Sign Out button placed safely on left */}
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
-              title="Sign Out of NexGen AI"
-            >
-              <LogOut className="w-3.5 h-3.5 text-rose-400" />
-              <span>Sign Out</span>
-            </button>
-
-            <span className="font-mono text-[11px] text-emerald-400 hidden lg:flex items-center gap-1">
+            <span className="font-mono text-[11px] text-emerald-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               All 312 Edge Nodes Synchronized
             </span>

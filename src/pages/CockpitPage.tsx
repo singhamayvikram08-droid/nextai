@@ -1550,8 +1550,8 @@ const CockpitPage = () => {
           <button
             onClick={handleLogoClick}
             className="flex items-center gap-2.5 group cursor-pointer shrink-0 text-left bg-transparent border-none p-0 focus:outline-none"
-            title="Step Back / Return to Previous Page"
-            aria-label="Step Back / Return to Previous Page"
+            title="NextGen AI"
+            aria-label="NextGen AI"
           >
             <div className="relative">
               <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
