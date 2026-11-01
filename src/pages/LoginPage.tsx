@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Eye, EyeOff, Mail, Lock, User, ArrowRight,
   Hexagon, CheckCircle2, Zap, Plus, X, Cpu, Activity, ShieldCheck, CreditCard,
-  UserCheck, ShieldAlert, Shield
+  UserCheck, ShieldAlert
 } from 'lucide-react';
 import Magnetic from '../components/Magnetic';
 import { analytics } from '../utils/analytics';
@@ -998,16 +998,6 @@ const LoginPage = () => {
                   </Link>
                   .
                 </p>
-
-                <div className="pt-2 border-t border-white/5 text-center">
-                  <Link
-                    to="/next-gen-ai/login"
-                    className="inline-flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-[#ff0055] transition-colors"
-                  >
-                    <Shield className="w-3.5 h-3.5 text-[#ff0055]" />
-                    <span>Master Admin Authorization Gateway →</span>
-                  </Link>
-                </div>
               </motion.div>
             )}
           </AnimatePresence>

@@ -42,7 +42,7 @@ const KNOWLEDGE_BASE: { keywords: string[]; response: string }[] = [
   },
   {
     keywords: ['admin', 'root', 'portal', 'pin', 'security'],
-    response: "The **Admin Portal** (`/admin/login` or `/portal`) provides root governance with cryptographic HMAC CAPTCHA challenges, PIN authorization, tamper-evident audit logging, and cluster controls."
+    response: "The **Admin Portal** is a restricted internal gateway providing root governance with cryptographic HMAC CAPTCHA challenges, PIN authorization, tamper-evident audit logging, and cluster controls for authorized personnel."
   },
   {
     keywords: ['help', 'commands', 'what can you do', 'menu', 'options'],
