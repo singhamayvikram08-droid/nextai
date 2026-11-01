@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { ClerkProvider, useUser } from '@clerk/react';
+import { ClerkProvider, useUser, useClerk } from '@clerk/react';
 import { dark } from '@clerk/themes';
 import { setStoredAuth, getStoredAuth, clearStoredAuth } from '../utils/auth';
 import { getClerkPublishableKey } from '../utils/clerk';
@@ -9,6 +9,19 @@ import { getClerkPublishableKey } from '../utils/clerk';
  */
 const ClerkSync = () => {
   const { user, isLoaded, isSignedIn } = useUser();
+  const { signOut } = useClerk();
+
+  useEffect(() => {
+    const handleSignOutRequest = () => {
+      if (isSignedIn) {
+        signOut();
+      }
+    };
+    window.addEventListener('nexgen-request-clerk-signout', handleSignOutRequest);
+    return () => {
+      window.removeEventListener('nexgen-request-clerk-signout', handleSignOutRequest);
+    };
+  }, [isSignedIn, signOut]);
 
   useEffect(() => {
     if (!isLoaded) return;

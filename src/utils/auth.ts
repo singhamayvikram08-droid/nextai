@@ -66,6 +66,9 @@ export const setStoredAuth = (user: Partial<UserSession>): UserSession => {
 export const clearStoredAuth = () => {
   localStorage.removeItem(AUTH_STORAGE_KEY);
   window.dispatchEvent(new Event('nexgen-auth-changed'));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('nexgen-request-clerk-signout'));
+  }
 };
 
 export const isAuthenticated = (): boolean => {
