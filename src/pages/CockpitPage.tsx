@@ -191,16 +191,6 @@ const CockpitPage = () => {
   const isEnterprise = Boolean(user?.tier === 'enterprise');
 
   // Step back one by one in history when clicking logo
-  const handleLogoClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    sound.click();
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/dashboard');
-    }
-  };
-
   usePageSEO({
     title: `3D Spatial Cockpit — NexGen AI ${isPro ? 'PRO ' : ''}WebGL Neural Matrix`,
     description: 'Immersive interactive 3D WebGL and WebGPU spatial computing cockpit. Inspect distributed satellite nodes, render real-time volumetric shaders, and dispatch quantum commands.'
@@ -1546,11 +1536,13 @@ const CockpitPage = () => {
       {/* ── 1. UNIFIED COCKPIT HEADER BAR (Matches Dashboard Page UI/UX) ── */}
       <header className="relative z-30 h-16 sm:h-20 border-b border-white/10 bg-[#06060c]/90 backdrop-blur-2xl px-4 lg:px-8 flex items-center justify-between shrink-0 shadow-lg shadow-black/40">
         <div className="flex items-center gap-4 min-w-0 shrink-0">
-          {/* Logo matching DashboardPage - Steps back one by one */}
-          <button
-            onClick={handleLogoClick}
+          {/* Logo matching DashboardPage */}
+          <Link
+            to="/"
+            onClick={() => sound.click()}
             className="flex items-center gap-2.5 group cursor-pointer shrink-0 text-left bg-transparent border-none p-0 focus:outline-none"
-            aria-label="NextGen AI (Step back)"
+            aria-label="NexGen AI Home"
+            title="Return to NexGen AI Home"
           >
             <div className="relative shrink-0">
               <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
@@ -1574,7 +1566,7 @@ const CockpitPage = () => {
                 Cloud-Native 3D Spatial Computing Engine
               </span>
             </div>
-          </button>
+          </Link>
         </div>
 
         {/* Right Status & Controls (Clean responsive layout, zero collision with header branding) */}

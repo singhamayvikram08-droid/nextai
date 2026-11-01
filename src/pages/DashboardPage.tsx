@@ -237,15 +237,6 @@ const DashboardPage = () => {
   };
 
   // When clicking NextGen AI logo or Back button: Cut one by back (step back 1 in browser history)
-  const handleLogoClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/');
-    }
-  };
-
   const handleTabChange = (tab: 'overview' | 'nodes' | 'console' | 'spec' | 'ai-terminal' | 'pricing') => {
     setActiveTab(tab);
     setSearchParams(tab === 'overview' ? {} : { tab });
@@ -484,11 +475,11 @@ const DashboardPage = () => {
       {/* ── TOP HEADER (Brand & User Profile) ── */}
       <header className="h-16 sm:h-20 border-b border-white/5 bg-[#050508]/90 backdrop-blur-xl sticky top-0 z-50 px-4 sm:px-6 lg:px-12 flex items-center justify-between w-full max-w-full">
         <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
-          <button
-            onClick={handleLogoClick}
+          <Link
+            to="/"
             className="flex items-center gap-2.5 group cursor-pointer shrink-0 text-left bg-transparent border-none p-0 focus:outline-none"
-            title="NextGen AI"
-            aria-label="NextGen AI"
+            title="NexGen AI Home"
+            aria-label="NexGen AI Home"
           >
             <div className="relative">
               <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
@@ -503,7 +494,7 @@ const DashboardPage = () => {
             <span className="ml-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-gray-400 uppercase tracking-widest hidden md:inline-block">
               Core v2.4
             </span>
-          </button>
+          </Link>
         </div>
 
         {/* User profile & actions */}
