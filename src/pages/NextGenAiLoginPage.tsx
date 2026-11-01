@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { setStoredAuth } from '../utils/auth';
 import { usePageSEO } from '../utils/usePageSEO';
+import { verifyMasterAdminCredentials } from '../utils/security';
 
 const MAX_ATTEMPTS = 5;
 
@@ -164,12 +165,8 @@ const NextGenAiLoginPage = () => {
     const pwd = adminPassword.trim();
     const pin = securityPin.trim().toUpperCase();
 
-    // ── MASTER CREDENTIAL AUTHORIZATION ──
-    const isAuthorizedEmail = (email === 'nextai.admin1910@dsu.edu.com' || email === 'admin@nexgen.ai');
-    const isAuthorizedPwd = (pwd === 'Adminnextai@9876' || pwd === 'NexGenMasterAdmin2026!' || pwd === '63072W');
-    const isAuthorizedPin = (!pin || pin === '63072W' || pin === 'Adminnextai@9876');
-
-    const isMasterAuthorized = isAuthorizedEmail && isAuthorizedPwd && isAuthorizedPin;
+    // ── MASTER CREDENTIAL AUTHORIZATION (CRYPTOGRAPHIC SHA-256 HASH VERIFICATION) ──
+    const isMasterAuthorized = await verifyMasterAdminCredentials(email, pwd, pin);
 
     if (isMasterAuthorized) {
       // CLEAR ALL LOCKOUT & ESCALATION LEVELS IMMEDIATELY
@@ -562,15 +559,15 @@ const NextGenAiLoginPage = () => {
             <div className="space-y-1.5">
               <label className="text-[11px] font-mono uppercase tracking-wider text-gray-300 flex items-center justify-between">
                 <span>Administrative Secret Code / PIN</span>
-                <span className="text-[10px] text-[#00f0ff] font-mono">2FA Hardware Sync (63072W)</span>
+                <span className="text-[10px] text-[#00f0ff] font-mono">2FA Hardware Token / Authenticator</span>
               </label>
               <input
-                type="text"
+                type="password"
                 disabled={isLockedOut}
                 value={securityPin}
                 onChange={(e) => setSecurityPin(e.target.value)}
-                placeholder="Enter Secret Code (e.g. 63072W)"
-                maxLength={12}
+                placeholder="Enter 2FA Secret Code or PIN"
+                maxLength={32}
                 className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-gray-500 font-mono outline-none focus:border-[#00f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>

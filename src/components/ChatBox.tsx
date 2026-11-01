@@ -267,52 +267,15 @@ const ChatBox = () => {
         }
       }
     } catch (err) {
-      console.warn('AI proxy streaming error, attempting direct inference:', err);
-      let directSuccess = false;
-      try {
-        const fallbackKey = atob('c2stb3ItdjEtMTRkNTQyMmI5Y2EwM2NhOGQ0MmY4ZGNlNjI0MjdmMTU1MDYyMWJmMDQxMmMyZGMwYjFlYjg1MTE4N2ViNzRlYQ==');
-        const directResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${fallbackKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'https://nextai-bay.vercel.app',
-            'X-Title': 'NexGen AI Copilot',
-          },
-          body: JSON.stringify({
-            model: 'openrouter/free',
-            messages: chatMessages,
-          }),
-        });
-
-        if (directResp.ok) {
-          const directData = await directResp.json();
-          const directContent = directData.choices?.[0]?.message?.content;
-          if (directContent) {
-            setMessages(prev =>
-              prev.map(m =>
-                m.id === botMsgId
-                  ? { ...m, content: directContent }
-                  : m
-              )
-            );
-            directSuccess = true;
-          }
-        }
-      } catch (directErr) {
-        console.warn('Direct AI inference fallback failed:', directErr);
-      }
-
-      if (!directSuccess) {
-        const fallbackReply = getBotResponse(text);
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === botMsgId
-              ? { ...m, content: fallbackReply }
-              : m
-          )
-        );
-      }
+      console.warn('AI proxy streaming unavailable, utilizing local knowledge engine:', err);
+      const fallbackReply = getBotResponse(text);
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === botMsgId
+            ? { ...m, content: fallbackReply }
+            : m
+        )
+      );
     } finally {
       setIsStreaming(false);
       setIsTyping(false);

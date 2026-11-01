@@ -1,8 +1,15 @@
 User-agent: *
 Allow: /
 Disallow: /dashboard
+Disallow: /cockpit
 Disallow: /next-gen-ai
+Disallow: /next-gen-ai/login
 Disallow: /admin
+Disallow: /admin/login
+Disallow: /portal
+Disallow: /portal/login
+Disallow: /admin-portal
+Disallow: /admin-portal/login
 Disallow: /api/
 
-Sitemap: https://nexgen.io/sitemap.xml
+Sitemap: https://nextai-bay.vercel.app/sitemap.xml

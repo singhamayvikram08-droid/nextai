@@ -547,8 +547,7 @@ export const securityLogger = (req, res, next) => {
 // ============================================================================
 // 7. SECURE AI COPILOT & REASONING TERMINAL PROXY (OPENROUTER STREAMING)
 // ============================================================================
-const FALLBACK_KEY_B64 = 'c2stb3ItdjEtMTRkNTQyMmI5Y2EwM2NhOGQ0MmY4ZGNlNjI0MjdmMTU1MDYyMWJmMDQxMmMyZGMwYjFlYjg1MTE4N2ViNzRlYQ==';
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || (typeof Buffer !== 'undefined' ? Buffer.from(FALLBACK_KEY_B64, 'base64').toString('utf8') : atob(FALLBACK_KEY_B64));
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const DEFAULT_MODEL = 'openrouter/free';
 const FALLBACK_MODELS = [
   'openrouter/free',
@@ -569,13 +568,18 @@ export const ALLOWED_ORIGINS = [
 
 export function applyCorsHeaders(req, res) {
   const origin = req.headers['origin'];
-  if (origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app') || origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else if (!origin) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+  if (origin) {
+    const isAllowed = ALLOWED_ORIGINS.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1');
+    if (isAllowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    res.setHeader('Vary', 'Origin');
   } else {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID, X-Webhook-Signature, X-Client-Timestamp, X-Captcha-Nonce, X-Captcha-Answer');

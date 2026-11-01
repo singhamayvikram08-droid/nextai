@@ -133,10 +133,38 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/admin/login" element={<NextGenAiLoginPage />} />
             <Route path="/portal/login" element={<NextGenAiLoginPage />} />
             <Route path="/admin-portal/login" element={<NextGenAiLoginPage />} />
-            <Route path="/next-gen-ai" element={<NextGenAiPortalPage />} />
-            <Route path="/admin" element={<NextGenAiPortalPage />} />
-            <Route path="/portal" element={<NextGenAiPortalPage />} />
-            <Route path="/admin-portal" element={<NextGenAiPortalPage />} />
+            <Route
+              path="/next-gen-ai"
+              element={
+                <ProtectedRoute requiredRole="admin" featureName="NextGen Master Admin Portal">
+                  <NextGenAiPortalPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requiredRole="admin" featureName="NextGen Master Admin Portal">
+                  <NextGenAiPortalPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/portal"
+              element={
+                <ProtectedRoute requiredRole="admin" featureName="NextGen Master Admin Portal">
+                  <NextGenAiPortalPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin-portal"
+              element={
+                <ProtectedRoute requiredRole="admin" featureName="NextGen Master Admin Portal">
+                  <NextGenAiPortalPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

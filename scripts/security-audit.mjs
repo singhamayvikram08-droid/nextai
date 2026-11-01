@@ -21,7 +21,9 @@ const SENSITIVE_PATTERNS = [
   { name: 'Slack API Token', regex: /xox[baprs]-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*/ },
   { name: 'Private Cryptographic Key', regex: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/ },
   { name: 'Stripe Live Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/ },
-  { name: 'Stripe Webhook Secret', regex: /whsec_[0-9a-zA-Z]{32}/ }
+  { name: 'Stripe Webhook Secret', regex: /whsec_[0-9a-zA-Z]{32}/ },
+  { name: 'Base64 Encoded OpenRouter / OpenAI Key', regex: /c2stb3It(?:djEt)?[a-zA-Z0-9+/=]{30,}/ },
+  { name: 'Base64 Encoded Google Cloud API Key', regex: /QUl6YVN5[a-zA-Z0-9+/=]{30,}/ }
 ];
 
 const IGNORED_DIRS = new Set([

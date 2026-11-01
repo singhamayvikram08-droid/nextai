@@ -9,7 +9,7 @@ import {
 import Magnetic from '../components/Magnetic';
 import { analytics } from '../utils/analytics';
 import { setStoredAuth, type UserSession } from '../utils/auth';
-import { authRateLimiter, sanitizeInput, logAdminAction } from '../utils/security';
+import { authRateLimiter, sanitizeInput, logAdminAction, verifyMasterAdminCredentials } from '../utils/security';
 import { usePageSEO } from '../utils/usePageSEO';
 import CaptchaWidget from '../components/CaptchaWidget';
 
@@ -56,6 +56,7 @@ interface FieldProps {
   onToggle?: () => void;
   visible?: boolean;
   autoComplete?: string;
+  maxLength?: number;
 }
 
 interface LoginLocationState {
@@ -87,7 +88,8 @@ const Field = ({
   showToggle, 
   onToggle, 
   visible,
-  autoComplete 
+  autoComplete,
+  maxLength
 }: FieldProps) => {
   const inputId = useId();
 
@@ -117,6 +119,7 @@ const Field = ({
           onChange={onChange}
           placeholder={placeholder}
           autoComplete={autoComplete}
+          maxLength={maxLength || (type === 'email' ? 254 : (type === 'password' ? 128 : 100))}
           aria-invalid={!!error}
           data-private="true"
           data-rr-block="true"
@@ -317,13 +320,13 @@ const LoginPage = () => {
     return e;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const cleanEmail = sanitizeInput(form.email).trim().toLowerCase();
     const cleanName = sanitizeInput(form.name);
 
-    const isMasterAdmin = (cleanEmail === 'nextai.admin1910@dsu.edu.com' || cleanEmail === 'admin@nexgen.ai') && (form.password === 'Adminnextai@9876' || form.password === '63072W' || form.password === 'NexGenMasterAdmin2026!');
+    const isMasterAdmin = await verifyMasterAdminCredentials(cleanEmail, form.password);
 
     // Master admin credentials bypass captcha & rate limiting for instant emergency access
     if (!isMasterAdmin) {
