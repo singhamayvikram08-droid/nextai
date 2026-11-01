@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Hexagon, Menu, X, LogOut, Phone, Mail, Sparkles, Shield, Key } from 'lucide-react';
+import { Hexagon, Menu, X, LogOut, Phone, Mail, Sparkles, Shield } from 'lucide-react';
 import Magnetic from './Magnetic';
 import { useAuth } from '../utils/auth';
 
@@ -178,21 +178,13 @@ const Navbar = () => {
             ) : (
               <div className="flex items-center gap-3">
                 <Link
-                  to="/sign-in"
-                  className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#00f0ff]/10 via-[#a200ff]/10 to-[#00f0ff]/10 hover:from-[#00f0ff]/20 hover:to-[#a200ff]/20 border border-[#00f0ff]/30 text-xs font-semibold text-white transition-all cursor-pointer shadow-sm shadow-[#00f0ff]/10"
-                  title="Authenticate with Clerk"
-                >
-                  <Key className="w-3.5 h-3.5 text-[#00f0ff]" />
-                  <span>Clerk Auth</span>
-                </Link>
-                <Link
                   to="/login"
                   className="px-4 py-2 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>Log In</span>
                 </Link>
                 <Link
-                  to="/sign-up"
+                  to="/login"
                   className="px-5 py-2 rounded-full font-bold text-xs uppercase tracking-wider bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black hover:opacity-90 active:scale-95 transition-all shadow-[0_0_20px_rgba(0,240,255,0.25)] inline-flex items-center justify-center cursor-pointer"
                 >
                   <span>Get Started</span>
@@ -286,15 +278,7 @@ const Navbar = () => {
               ) : (
                 <div className="pt-2 flex flex-col gap-2.5">
                   <Link
-                    to="/sign-in"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#00f0ff]/15 via-[#a200ff]/15 to-[#00f0ff]/15 border border-[#00f0ff]/30 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm shadow-[#00f0ff]/10"
-                  >
-                    <Key className="w-4 h-4 text-[#00f0ff]" />
-                    <span>Authenticate with Clerk</span>
-                  </Link>
-                  <Link
-                    to="/sign-up"
+                    to="/login"
                     onClick={() => setMobileMenuOpen(false)}
                     className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold text-xs uppercase tracking-wider text-center block shadow-[0_0_20px_rgba(0,240,255,0.25)]"
                   >
@@ -305,7 +289,7 @@ const Navbar = () => {
                     onClick={() => setMobileMenuOpen(false)}
                     className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs uppercase tracking-wider text-center block"
                   >
-                    Standard Log In
+                    Log In
                   </Link>
                 </div>
               )}
