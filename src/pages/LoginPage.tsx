@@ -2,7 +2,7 @@ import { useState, useRef, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Eye, EyeOff, Mail, Lock, User, ArrowRight,
+  Eye, EyeOff, Mail, Lock, User, ArrowRight, Key,
   Hexagon, CheckCircle2, Zap, Plus, X, Cpu, Activity, ShieldCheck, CreditCard,
   UserCheck, ShieldAlert
 } from 'lucide-react';
@@ -694,6 +694,16 @@ const LoginPage = () => {
                     </button>
                   </p>
                 </div>
+
+                {/* Clerk SSO Authentication Button */}
+                <Link
+                  to="/sign-in"
+                  className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-gradient-to-r from-[#00f0ff]/15 via-[#a200ff]/15 to-[#00f0ff]/15 hover:from-[#00f0ff]/25 hover:to-[#a200ff]/25 border border-[#00f0ff]/40 text-xs font-bold text-white transition-all cursor-pointer shadow-lg shadow-[#00f0ff]/10 group"
+                >
+                  <Key className="w-4 h-4 text-[#00f0ff] group-hover:scale-110 transition-transform" />
+                  <span>Authenticate with Clerk (SSO / Passkeys)</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#00f0ff] ml-auto group-hover:translate-x-1 transition-transform" />
+                </Link>
 
                 {/* OAuth Social Buttons */}
                 <div className="grid grid-cols-2 gap-3">

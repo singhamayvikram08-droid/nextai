@@ -4,12 +4,15 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import './index.css';
 import CookieConsentBanner from './components/CookieConsentBanner';
 import ProtectedRoute from './components/ProtectedRoute';
+import ClerkAuthProvider from './components/ClerkAuthProvider';
 import { analytics } from './utils/analytics';
 
 import App from './App';
 
 // Code-splitting routes for optimal PageSpeed & First Contentful Paint
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const SignInPage = lazy(() => import('./pages/SignInPage'));
+const SignUpPage = lazy(() => import('./pages/SignUpPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CockpitPage = lazy(() => import('./pages/CockpitPage'));
 const DocsPage = lazy(() => import('./pages/DocsPage'));
@@ -104,21 +107,24 @@ const AnalyticsTracker = () => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <RootErrorBoundary>
-      <BrowserRouter>
-        <AnalyticsTracker />
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<App />} />
-            <Route
-              path="/cockpit"
-              element={
-                <ProtectedRoute featureName="3D Spatial Cockpit">
-                  <CockpitPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/docs" element={<DocsPage />} />
+      <ClerkAuthProvider>
+        <BrowserRouter>
+          <AnalyticsTracker />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<App />} />
+              <Route
+                path="/cockpit"
+                element={
+                  <ProtectedRoute featureName="3D Spatial Cockpit">
+                    <CockpitPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/sign-in/*" element={<SignInPage />} />
+              <Route path="/sign-up/*" element={<SignUpPage />} />
+              <Route path="/docs" element={<DocsPage />} />
             <Route
               path="/dashboard"
               element={
@@ -173,6 +179,7 @@ createRoot(document.getElementById('root')!).render(
         </Suspense>
         <CookieConsentBanner />
       </BrowserRouter>
+      </ClerkAuthProvider>
     </RootErrorBoundary>
   </StrictMode>,
 );
