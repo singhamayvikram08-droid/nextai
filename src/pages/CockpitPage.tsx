@@ -1545,58 +1545,47 @@ const CockpitPage = () => {
     <div className="relative w-full h-screen overflow-hidden bg-[#030305] text-slate-100 font-sans select-none flex flex-col">
       {/* ── 1. UNIFIED COCKPIT HEADER BAR (Matches Dashboard Page UI/UX) ── */}
       <header className="relative z-30 h-16 sm:h-20 border-b border-white/10 bg-[#06060c]/90 backdrop-blur-2xl px-4 lg:px-8 flex items-center justify-between shrink-0 shadow-lg shadow-black/40">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0 shrink-0">
           {/* Logo matching DashboardPage - Steps back one by one */}
           <button
             onClick={handleLogoClick}
             className="flex items-center gap-2.5 group cursor-pointer shrink-0 text-left bg-transparent border-none p-0 focus:outline-none"
-            title="NextGen AI"
-            aria-label="NextGen AI"
+            aria-label="NextGen AI (Step back)"
           >
-            <div className="relative">
+            <div className="relative shrink-0">
               <div className="absolute inset-0 bg-[#00f0ff] blur-md opacity-40 group-hover:opacity-80 transition-opacity rounded-full" />
               <Hexagon className="text-[#00f0ff] relative z-10 w-7 h-7 sm:w-8 sm:h-8 group-hover:scale-110 transition-transform" />
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-lg sm:text-xl tracking-wide uppercase text-white">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5 flex-nowrap">
+                <span className="font-black text-lg sm:text-xl tracking-wide uppercase text-white whitespace-nowrap">
                   Nex<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00f0ff] to-[#a200ff]">Gen AI</span>
                 </span>
                 {isPro && (
-                  <span className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-[#00f0ff]/20 to-[#a200ff]/20 border border-[#00f0ff]/40 text-[#00f0ff] text-[10px] sm:text-xs font-black tracking-widest leading-none">
+                  <span className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-[#00f0ff]/20 to-[#a200ff]/20 border border-[#00f0ff]/40 text-[#00f0ff] text-[10px] sm:text-xs font-black tracking-widest leading-none shrink-0">
                     PRO
                   </span>
                 )}
-                <span className="ml-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-gray-400 uppercase tracking-widest hidden md:inline-block">
+                <span className="ml-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-mono text-gray-400 uppercase tracking-widest hidden xl:inline-block shrink-0">
                   Core v2.4 Spatial
                 </span>
               </div>
-              <span className="text-[9px] font-mono text-gray-400 hidden lg:block -mt-0.5">
+              <span className="text-[9px] font-mono text-gray-400 hidden 2xl:block -mt-0.5 truncate">
                 Cloud-Native 3D Spatial Computing Engine
               </span>
             </div>
           </button>
         </div>
 
-        {/* Center HUD Status Title Badge */}
-        <div className="hidden md:flex items-center gap-2.5 px-4 py-1.5 rounded-2xl bg-black/40 border border-white/10 shadow-inner">
-          <span className="w-2 h-2 rounded-full bg-[#00f0ff] animate-pulse" />
-          <span className="text-xs font-mono font-bold tracking-widest uppercase text-gray-200">
-            3D SPATIAL NEURAL MATRIX
-          </span>
-          <span className="text-gray-600 font-mono">|</span>
-          <span className="text-[10px] font-mono font-bold text-emerald-400">CLUSTER #01 ONLINE</span>
-        </div>
-
-        {/* Right Status & Controls (Removed AI Reasoning & Telemetry Nodes, Added Share & Dashboard & User Profile) */}
-        <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
-          <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-mono text-gray-400">
+        {/* Right Status & Controls (Clean responsive layout, zero collision with header branding) */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
+          <div className="hidden xl:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-mono text-gray-400">
             <span>FPS: <strong className="text-emerald-400">{fps}</strong></span>
             <span>•</span>
             <span>BUS: <strong className="text-[#00f0ff]">&lt;0.28ms</strong></span>
           </div>
 
-          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-mono text-emerald-400">
+          <div className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-mono text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>SYSTEM OPTIMAL</span>
           </div>
@@ -1604,8 +1593,9 @@ const CockpitPage = () => {
           {/* Share Button in Header */}
           <button
             onClick={handleShare}
-            className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00f0ff]/40 text-gray-200 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00f0ff]/40 text-gray-200 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
             title="Share 3D Cockpit Link"
+            aria-label="Share 3D Cockpit Link"
           >
             {shareCopied ? (
               <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -1619,20 +1609,20 @@ const CockpitPage = () => {
           <Link
             to="/dashboard"
             onClick={() => sound.click()}
-            className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold text-xs uppercase tracking-wider hover:opacity-90 transition-opacity shadow-lg shadow-[#00f0ff]/20 shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#00f0ff] to-[#a200ff] text-black font-extrabold text-xs uppercase tracking-wider hover:opacity-90 transition-opacity shadow-lg shadow-[#00f0ff]/20 shrink-0"
             title="Open Platform Dashboard"
           >
             <Layers className="w-3.5 h-3.5 fill-black" />
-            <span>Dashboard</span>
+            <span className="hidden sm:inline">Dashboard</span>
           </Link>
 
           {/* User Profile Pill matching Dashboard */}
-          <div className="flex items-center gap-2.5 sm:gap-3 pl-2 sm:pl-3 border-l border-white/10">
+          <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-white/10">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#00f0ff] to-[#a200ff] flex items-center justify-center text-xs font-black text-black shadow-lg shadow-[#00f0ff]/20 shrink-0">
               {user?.avatar || 'MB'}
             </div>
-            <div className="hidden lg:block text-left">
-              <div className="text-xs font-bold text-white leading-tight">{user?.name || 'Authorized Member'}</div>
+            <div className="hidden xl:block text-left">
+              <div className="text-xs font-bold text-white leading-tight truncate max-w-[120px]">{user?.name || 'Authorized Member'}</div>
               {isPro ? (
                 <div className="text-[10px] text-[#00f0ff] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-[#00f0ff]" />
@@ -1665,7 +1655,7 @@ const CockpitPage = () => {
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/60 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
             >
               <LogOut className="w-3.5 h-3.5 text-rose-400" />
-              <span className="hidden md:inline">Logout</span>
+              <span className="hidden lg:inline">Logout</span>
             </button>
           </div>
         </div>
