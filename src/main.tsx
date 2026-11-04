@@ -18,6 +18,7 @@ const TermsPage = lazy(() => import('./pages/TermsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const NextGenAiPortalPage = lazy(() => import('./pages/NextGenAiPortalPage'));
 const NextGenAiLoginPage = lazy(() => import('./pages/NextGenAiLoginPage'));
+const ChatAppPage = lazy(() => import('./pages/ChatAppPage'));
 const ChatBox = lazy(() => import('./components/ChatBox'));
 
 interface ErrorBoundaryProps {
@@ -109,6 +110,7 @@ createRoot(document.getElementById('root')!).render(
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<App />} />
+            <Route path="/chat" element={<ChatAppPage />} />
             <Route
               path="/cockpit"
               element={

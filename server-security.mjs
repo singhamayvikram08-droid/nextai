@@ -616,16 +616,9 @@ export async function handleAiChatStream(req, res) {
         ...FALLBACK_MODELS.filter(m => m !== requestedModel)
       ];
 
-      if (!OPENROUTER_API_KEY) {
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache, no-transform',
-          'Connection': 'keep-alive',
-        });
-        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "[AI Neural Core] OPENROUTER_API_KEY is not configured on this host. Please set the OPENROUTER_API_KEY environment variable to enable live generative inference." } }] })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        return res.end();
-      }
+      const geminiKey = req.headers['x-gemini-key'] || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+      const openaiKey = req.headers['x-openai-key'] || process.env.OPENAI_API_KEY;
+      const anthropicKey = req.headers['x-anthropic-key'] || process.env.ANTHROPIC_API_KEY;
 
       // Establish SSE connection to client
       res.writeHead(200, {
@@ -634,6 +627,162 @@ export async function handleAiChatStream(req, res) {
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
       });
+
+      // ── 1. GOOGLE GEMINI STREAMING HANDLER ──
+      if (geminiKey && requestedModel.includes('gemini')) {
+        try {
+          const contents = messages.map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content || '' }]
+          }));
+
+          const geminiResp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${requestedModel}:streamGenerateContent?alt=sse&key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents,
+                generationConfig: {
+                  temperature: body.temperature ?? 0.7,
+                },
+                systemInstruction: body.systemPrompt ? { parts: [{ text: body.systemPrompt }] } : undefined,
+              }),
+            }
+          );
+
+          if (geminiResp.ok && geminiResp.body) {
+            const reader = geminiResp.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const textChunk = decoder.decode(value, { stream: true });
+              const lines = textChunk.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const parsed = JSON.parse(line.slice(6));
+                    const chunkText = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    if (chunkText) {
+                      res.write(`data: ${JSON.stringify({ content: chunkText, model: requestedModel })}\n\n`);
+                    }
+                  } catch {}
+                }
+              }
+            }
+            res.write('data: [DONE]\n\n');
+            return res.end();
+          }
+        } catch (geminiErr) {
+          console.warn('[Gemini Stream Error]', geminiErr.message);
+        }
+      }
+
+      // ── 2. OPENAI STREAMING HANDLER ──
+      if (openaiKey && (requestedModel.startsWith('gpt') || requestedModel.startsWith('o'))) {
+        try {
+          const openaiResp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openaiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: requestedModel,
+              messages,
+              temperature: body.temperature ?? 0.7,
+              stream: true,
+            }),
+          });
+
+          if (openaiResp.ok && openaiResp.body) {
+            const reader = openaiResp.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const textChunk = decoder.decode(value, { stream: true });
+              const lines = textChunk.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                  try {
+                    const parsed = JSON.parse(line.slice(6));
+                    const chunkText = parsed.choices?.[0]?.delta?.content || '';
+                    if (chunkText) {
+                      res.write(`data: ${JSON.stringify({ content: chunkText, model: requestedModel })}\n\n`);
+                    }
+                  } catch {}
+                }
+              }
+            }
+            res.write('data: [DONE]\n\n');
+            return res.end();
+          }
+        } catch (openaiErr) {
+          console.warn('[OpenAI Stream Error]', openaiErr.message);
+        }
+      }
+
+      // ── 3. ANTHROPIC STREAMING HANDLER ──
+      if (anthropicKey && requestedModel.includes('claude')) {
+        try {
+          const anthropicMessages = messages.filter(m => m.role !== 'system').map(m => ({
+            role: m.role,
+            content: m.content,
+          }));
+
+          const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': anthropicKey,
+              'anthropic-version': '2023-06-01',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: requestedModel,
+              messages: anthropicMessages,
+              max_tokens: 4096,
+              system: body.systemPrompt || undefined,
+              stream: true,
+            }),
+          });
+
+          if (claudeResp.ok && claudeResp.body) {
+            const reader = claudeResp.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const textChunk = decoder.decode(value, { stream: true });
+              const lines = textChunk.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const parsed = JSON.parse(line.slice(6));
+                    if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                      res.write(`data: ${JSON.stringify({ content: parsed.delta.text, model: requestedModel })}\n\n`);
+                    }
+                  } catch {}
+                }
+              }
+            }
+            res.write('data: [DONE]\n\n');
+            return res.end();
+          }
+        } catch (claudeErr) {
+          console.warn('[Anthropic Stream Error]', claudeErr.message);
+        }
+      }
+
+      if (!OPENROUTER_API_KEY && !geminiKey && !openaiKey && !anthropicKey) {
+        const lastMsg = messages[messages.length - 1]?.content || 'Hello';
+        res.write(`data: ${JSON.stringify({
+          content: `Hello! I received your query: "${lastMsg.slice(0, 80)}".\n\nTo enable live streaming from **Google Gemini**, **OpenAI**, or **Anthropic Claude**, open the **Settings (⚙️)** modal and enter your API key, or set \`GEMINI_API_KEY\` / \`OPENAI_API_KEY\` in your environment.\n\nAll client-side sessions, Markdown formatting, KaTeX math ($E=mc^2$), and code copy functionality are active!`
+        })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        return res.end();
+      }
 
       let upstreamResponse = null;
       let activeModel = requestedModel;
