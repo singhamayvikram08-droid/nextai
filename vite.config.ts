@@ -4,9 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  optimizeDeps: {
-    entries: ['index.html'],
-  },
   plugins: [
     react(),
     tailwindcss(),

@@ -6,7 +6,6 @@ import Magnetic from './Magnetic';
 import { useAuth } from '../utils/auth';
 
 const navLinks = [
-  { label: 'AI Chat Studio', href: '/chat' },
   { label: 'Features', href: '#features' },
   { label: 'Engine', href: '#engine' },
   { label: 'Pricing', href: '#pricing' },
